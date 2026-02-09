@@ -1,0 +1,6 @@
+@AnnaBooktable.Gateway_HostAddress = http://localhost:5218
+
+GET {{AnnaBooktable.Gateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

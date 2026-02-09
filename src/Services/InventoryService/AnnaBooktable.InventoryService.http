@@ -1,0 +1,6 @@
+@AnnaBooktable.InventoryService_HostAddress = http://localhost:5265
+
+GET {{AnnaBooktable.InventoryService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

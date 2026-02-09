@@ -1,0 +1,118 @@
+﻿# Anna's Booktable  -  Local Development Infrastructure
+# Usage: docker compose up -d
+
+services:
+  # ===== PostgreSQL 16 (Primary Database) =====
+  postgres:
+    image: postgres:16-alpine
+    container_name: booktable-postgres
+    environment:
+      POSTGRES_DB: booktable
+      POSTGRES_USER: booktable_admin
+      POSTGRES_PASSWORD: LocalDev123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U booktable_admin -d booktable"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ===== Redis 7 (Cache + Holds + Idempotency) =====
+  redis:
+    image: redis:7-alpine
+    container_name: booktable-redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ===== Elasticsearch 8 (Search) =====
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: booktable-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.name=booktable-search
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # ===== RabbitMQ 3 (Message Bus  -  dev substitute for Azure Service Bus) =====
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: booktable-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  # ===== Seq (Structured Log Viewer  -  dev substitute for Azure Log Analytics) =====
+  seq:
+    image: datalust/seq:latest
+    container_name: booktable-seq
+    environment:
+      - ACCEPT_EULA=Y
+    ports:
+      - "5341:5341"
+      - "8080:80"
+    volumes:
+      - seq_data:/data
+    restart: unless-stopped
+
+  # ===== Redis Insight (Redis GUI  -  optional) =====
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: booktable-redis-insight
+    ports:
+      - "5540:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  es_data:
+  rabbitmq_data:
+  seq_data:

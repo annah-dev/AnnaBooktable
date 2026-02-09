@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(del \"D:\\\\dev\\\\AnnaBooktable\\\\src\\\\Shared\\\\Infrastructure\\\\Class1.cs\")",
+      "Bash(del:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build)",
+      "Bash(docker compose:*)",
+      "Bash(curl:*)",
+      "Bash(npx vite:*)",
+      "Bash(taskkill:*)",
+      "Bash(dotnet run:*)",
+      "Bash(tasklist:*)",
+      "Bash(ASPNETCORE_ENVIRONMENT=Development dotnet run:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker cp:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(echo:*)",
+      "Bash(start:*)",
+      "Bash(cmd //c \"taskkill /PID 6824 /F\")",
+      "Bash(docker ps:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node -e:*)"
+    ]
+  }
+}
