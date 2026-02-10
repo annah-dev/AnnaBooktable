@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+function getTomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function GlassSearchBar() {
   const navigate = useNavigate();
   const [city, setCity] = useState('Bellevue');
-  const [date, setDate] = useState('2026-02-10');
+  const [date, setDate] = useState(getTomorrow);
   const [time, setTime] = useState('19:00');
   const [guests, setGuests] = useState('2');
 

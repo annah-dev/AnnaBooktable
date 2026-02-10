@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import GlassSearchBar from '../components/search/GlassSearchBar.tsx';
 import StarRating from '../components/common/StarRating.tsx';
 import { useSearch } from '../api/search.ts';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
+
+function getTomorrow() {
+  return addDays(new Date(), 1).toISOString().slice(0, 10);
+}
 
 const CUISINE_EMOJI: Record<string, string> = {
   'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝', 'French': '🇫🇷',
@@ -15,7 +19,7 @@ const CUISINE_EMOJI: Record<string, string> = {
 export default function HomePage() {
   const navigate = useNavigate();
   const [loaded, setLoaded] = useState(false);
-  const { data } = useSearch({ city: 'Bellevue', partySize: 2, date: '2026-02-10' });
+  const { data } = useSearch({ city: 'Bellevue', partySize: 2, date: getTomorrow() });
   const trending = data?.results?.slice(0, 4) ?? [];
 
   useEffect(() => {

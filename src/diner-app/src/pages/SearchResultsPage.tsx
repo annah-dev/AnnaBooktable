@@ -4,13 +4,19 @@ import FilterSidebar from '../components/search/FilterSidebar.tsx';
 import RestaurantCard from '../components/search/RestaurantCard.tsx';
 import { useSearch } from '../api/search.ts';
 
+function getTomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function SearchResultsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [selectedCuisine, setSelectedCuisine] = useState('All');
 
   const city = searchParams.get('city') ?? 'Bellevue';
-  const date = searchParams.get('date') ?? '2026-02-10';
+  const date = searchParams.get('date') ?? getTomorrow();
   const time = searchParams.get('time') ?? '19:00';
   const partySize = Number(searchParams.get('partySize') ?? '2');
 
