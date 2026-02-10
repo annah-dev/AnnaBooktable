@@ -133,6 +133,19 @@ public class RedisService
         }
     }
 
+    public async Task InvalidateCachedAvailability(Guid restaurantId, DateOnly date)
+    {
+        try
+        {
+            var key = $"avail:{restaurantId}:{date:yyyy-MM-dd}";
+            await Db.KeyDeleteAsync(key);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Redis error invalidating cached availability for restaurant {RestaurantId}", restaurantId);
+        }
+    }
+
     // ============================================================
     // IDEMPOTENCY KEYS (Layer 3)
     // Key format: idem:{key}

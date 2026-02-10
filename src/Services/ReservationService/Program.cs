@@ -236,6 +236,9 @@ try
             // Release hold in Redis (cleanup)
             await redis.ReleaseHold(request.SlotId);
 
+            // Invalidate availability cache so the booked slot disappears immediately
+            await redis.InvalidateCachedAvailability(slot.RestaurantId, DateOnly.FromDateTime(slot.StartTime));
+
             // Publish ReservationCreated event
             try
             {
@@ -381,6 +384,10 @@ try
         }
 
         await db.SaveChangesAsync();
+
+        // Invalidate availability cache so the freed slot appears immediately
+        if (slot != null)
+            await redis.InvalidateCachedAvailability(reservation.RestaurantId, DateOnly.FromDateTime(slot.StartTime));
 
         // Refund if payment was captured
         if (reservation.PaymentStatus == "CAPTURED" && reservation.PaymentIntentId != null)

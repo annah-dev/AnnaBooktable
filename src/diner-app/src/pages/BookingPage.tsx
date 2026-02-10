@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import CountdownTimer from '../components/booking/CountdownTimer.tsx';
 import ConfirmationView from '../components/booking/ConfirmationView.tsx';
@@ -32,46 +32,46 @@ export default function BookingPage() {
   const createReservation = useCreateReservation();
   const countdown = useCountdown(expiresAt);
 
-  // Ref to prevent double hold acquisition (React StrictMode)
-  const holdAttempted = useRef(false);
-
-  // BUG 3 fix: If no navigation state (direct URL or stale history), redirect away
+  // Redirect if no navigation state (direct URL or stale history)
   useEffect(() => {
     if (!state?.restaurant || !state?.slot) {
       navigate('/', { replace: true });
     }
   }, [state, navigate]);
 
-  // Acquire hold on mount (StrictMode-safe via ref)
+  // Acquire hold on mount using mutateAsync + cleanup cancellation.
+  // This is StrictMode-safe: mount 1's cleanup sets cancelled=true,
+  // so only mount 2's promise result updates state.
   useEffect(() => {
-    if (!slotId || holdAttempted.current) return;
-    holdAttempted.current = true;
+    if (!slotId) return;
+    let cancelled = false;
 
-    acquireHold.mutate(
-      { slotId, userId: USER_ID },
-      {
-        onSuccess: (data) => {
-          setHoldToken(data.holdToken);
-          setExpiresAt(data.expiresAt);
-          setStep('hold');
-        },
-        onError: (err: any) => {
-          const msg = err?.response?.data?.error ?? 'Failed to acquire hold. The slot may already be taken.';
-          setErrorMessage(msg);
-          setStep('error');
-        },
-      },
-    );
+    acquireHold.mutateAsync({ slotId, userId: USER_ID })
+      .then((data) => {
+        if (cancelled) return;
+        setHoldToken(data.holdToken);
+        setExpiresAt(data.expiresAt);
+        setStep('hold');
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        const msg = err?.response?.data?.error ?? 'Failed to acquire hold. The slot may already be taken.';
+        setErrorMessage(msg);
+        setStep('error');
+      });
+
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotId]);
 
-  // BUG 3 fix: When countdown expires, redirect back
+  // When countdown expires, show error (real-time check avoids stale-state issues)
   useEffect(() => {
-    if (countdown.isExpired && expiresAt && step !== 'confirmed' && step !== 'confirming' && step !== 'error') {
+    if (!expiresAt || step === 'confirmed' || step === 'confirming' || step === 'error') return;
+    if (new Date(expiresAt).getTime() <= Date.now()) {
       setErrorMessage('Your hold has expired. Please try again.');
       setStep('error');
     }
-  }, [countdown.isExpired, expiresAt, step]);
+  }, [countdown.seconds, expiresAt, step]);
 
   const handleRelease = () => {
     if (slotId) releaseHold.mutate(slotId);
@@ -81,35 +81,31 @@ export default function BookingPage() {
   const handleConfirm = () => {
     if (!slotId) return;
     setStep('confirming');
-    createReservation.mutate(
-      {
-        slotId,
-        userId: USER_ID,
-        holdToken: holdToken ?? undefined,
-        partySize: capacity,
-        specialRequests: specialRequests || undefined,
-        paymentToken: 'tok_demo_visa',
-        idempotencyKey: crypto.randomUUID(),
-      },
-      {
-        onSuccess: (data) => {
-          setConfirmationData({
-            code: data.confirmationCode,
-            restaurantName: data.restaurantName || restaurantName,
-            dateTime: data.dateTime || slotTime,
-            partySize: data.partySize,
-          });
-          setStep('confirmed');
-          // Replace history so browser back doesn't return to this booking page
-          window.history.replaceState(null, '', window.location.pathname);
-        },
-        onError: (err: any) => {
-          const msg = err?.response?.data?.error ?? 'Booking failed. Please try again.';
-          setErrorMessage(msg);
-          setStep('error');
-        },
-      },
-    );
+    createReservation.mutateAsync({
+      slotId,
+      userId: USER_ID,
+      holdToken: holdToken ?? undefined,
+      partySize: capacity,
+      specialRequests: specialRequests || undefined,
+      paymentToken: 'tok_demo_visa',
+      idempotencyKey: crypto.randomUUID(),
+    })
+      .then((data) => {
+        setConfirmationData({
+          code: data.confirmationCode,
+          restaurantName: data.restaurantName || restaurantName,
+          dateTime: data.dateTime || slotTime,
+          partySize: data.partySize,
+        });
+        setStep('confirmed');
+        // Replace history so browser back doesn't return to stale booking page
+        window.history.replaceState(null, '', window.location.pathname);
+      })
+      .catch((err: any) => {
+        const msg = err?.response?.data?.error ?? 'Booking failed. Please try again.';
+        setErrorMessage(msg);
+        setStep('error');
+      });
   };
 
   if (step === 'confirmed' && confirmationData) {

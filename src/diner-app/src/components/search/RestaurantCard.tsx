@@ -21,6 +21,10 @@ export default function RestaurantCard({ restaurant, index, onCardClick, onTimeC
   const priceMuted = restaurant.priceLevel ? '$'.repeat(4 - restaurant.priceLevel) : '';
   const emoji = CUISINE_EMOJI[restaurant.cuisine ?? ''] ?? '🍽️';
 
+  // Deduplicate slots by start time (multiple tables share the same time)
+  const uniqueSlots = restaurant.availableSlots
+    .filter((slot, i, arr) => arr.findIndex(s => s.startTime === slot.startTime) === i);
+
   return (
     <div
       className="rounded-[14px] overflow-hidden cursor-pointer bg-bg-secondary border border-border transition-all duration-300 hover:-translate-y-[3px] hover:border-accent-glow animate-fade-slide-up"
@@ -44,16 +48,16 @@ export default function RestaurantCard({ restaurant, index, onCardClick, onTimeC
           {restaurant.cuisine} · {restaurant.address}
         </div>
         <div className="flex gap-2 flex-wrap">
-          {restaurant.availableSlots.slice(0, 6).map(slot => (
+          {uniqueSlots.slice(0, 6).map(slot => (
             <TimeSlotPill
               key={slot.slotId}
               startTime={slot.startTime}
               onClick={() => { onTimeClick(slot.slotId); }}
             />
           ))}
-          {restaurant.availableSlots.length > 6 && (
+          {uniqueSlots.length > 6 && (
             <span className="font-sans text-[11px] text-text-tertiary py-1.5 px-1">
-              +{restaurant.availableSlots.length - 6}
+              +{uniqueSlots.length - 6}
             </span>
           )}
         </div>
