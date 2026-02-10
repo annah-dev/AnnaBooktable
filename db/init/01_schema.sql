@@ -98,7 +98,8 @@ CREATE INDEX idx_tables_restaurant_group ON tables(restaurant_id, table_group_id
 
 -- ============================================================
 -- TIME SLOTS  -  THE HOT TABLE
--- Partitioned by date for performance
+-- Note: PostgreSQL cannot partition by generated columns,
+-- so we use a regular table with a generated date column.
 -- ============================================================
 CREATE TABLE time_slots (
     slot_id         UUID NOT NULL DEFAULT uuid_generate_v4(),
@@ -117,33 +118,8 @@ CREATE TABLE time_slots (
     -- [S] THE CRITICAL SAFETY NET  -  prevents double-booking at DB level
     UNIQUE (restaurant_id, table_id, start_time),
 
-    PRIMARY KEY (slot_id, date)
-) PARTITION BY RANGE (date);
-
--- Create partitions: current month + 6 months forward + 1 month back
-DO $$
-DECLARE
-    start_date DATE := DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month');
-    end_date DATE;
-    partition_name TEXT;
-BEGIN
-    FOR i IN 0..7 LOOP
-        end_date := start_date + INTERVAL '1 month';
-        partition_name := 'time_slots_' || TO_CHAR(start_date, 'YYYY_MM');
-
-        IF NOT EXISTS (
-            SELECT 1 FROM pg_class WHERE relname = partition_name
-        ) THEN
-            EXECUTE format(
-                'CREATE TABLE %I PARTITION OF time_slots
-                 FOR VALUES FROM (%L) TO (%L)',
-                partition_name, start_date, end_date
-            );
-        END IF;
-
-        start_date := end_date;
-    END LOOP;
-END $$;
+    PRIMARY KEY (slot_id)
+);
 
 -- Critical indexes
 CREATE INDEX idx_slots_restaurant_date ON time_slots(restaurant_id, date);

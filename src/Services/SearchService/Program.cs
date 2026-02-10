@@ -25,14 +25,22 @@ try
     builder.Services.AddRedisService(
         builder.Configuration.GetConnectionString("Redis")!);
 
-    // MassTransit
+    // MassTransit - use RabbitMQ if configured, otherwise in-memory
+    var rabbitMqConn = builder.Configuration.GetConnectionString("RabbitMQ");
     builder.Services.AddMassTransit(x =>
     {
-        x.UsingRabbitMq((context, cfg) =>
+        if (!string.IsNullOrEmpty(rabbitMqConn))
         {
-            cfg.Host(new Uri(builder.Configuration.GetConnectionString("RabbitMQ")!));
-            cfg.ConfigureEndpoints(context);
-        });
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(new Uri(rabbitMqConn));
+                cfg.ConfigureEndpoints(context);
+            });
+        }
+        else
+        {
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        }
     });
 
     builder.Services.AddEndpointsApiExplorer();

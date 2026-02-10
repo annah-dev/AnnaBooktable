@@ -3,8 +3,10 @@ import StarRating from '../common/StarRating.tsx';
 import TimeSlotPill from './TimeSlotPill.tsx';
 
 const CUISINE_EMOJI: Record<string, string> = {
-  'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝',
-  'French': '🇫🇷', 'Mexican': '🌮', 'Chinese': '🐉', 'Thai': '🍜',
+  'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝', 'French': '🇫🇷',
+  'Mexican': '🌮', 'Chinese': '🥟', 'Thai': '🍜', 'Korean': '🥘',
+  'Indian': '🍛', 'Vietnamese': '🍲', 'Seafood': '🦀', 'Steakhouse': '🥩',
+  'Mediterranean': '🫒', 'Taiwanese': '🧋', 'BBQ': '🔥', 'Pizza': '🍕',
 };
 
 interface RestaurantCardProps {

@@ -1,4 +1,8 @@
-const CUISINES = ['All', 'American', 'Japanese', 'Italian', 'French', 'Mexican', 'Chinese', 'Thai'];
+const CUISINES = [
+  'All', 'American', 'Japanese', 'Italian', 'Korean', 'Chinese', 'Indian',
+  'Thai', 'Vietnamese', 'Mexican', 'French', 'Seafood', 'Steakhouse',
+  'Mediterranean', 'Taiwanese', 'BBQ', 'Pizza',
+];
 
 interface FilterSidebarProps {
   selectedCuisine: string;

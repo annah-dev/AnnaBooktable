@@ -17,6 +17,7 @@ export interface BookingResponse {
   confirmationCode: string;
   status: string;
   restaurantName: string;
+  cuisine?: string;
   dateTime: string;
   partySize: number;
 }

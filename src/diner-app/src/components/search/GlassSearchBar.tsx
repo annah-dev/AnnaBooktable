@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function GlassSearchBar() {
   const navigate = useNavigate();
-  const [city, setCity] = useState('San Francisco');
+  const [city, setCity] = useState('Bellevue');
   const [date, setDate] = useState('2026-02-10');
   const [time, setTime] = useState('19:00');
   const [guests, setGuests] = useState('2');

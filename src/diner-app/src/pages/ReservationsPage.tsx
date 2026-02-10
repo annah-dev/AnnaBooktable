@@ -10,8 +10,11 @@ const STATUS_BORDER_COLOR: Record<string, string> = {
   NO_SHOW: 'border-l-text-tertiary',
 };
 
-const RESTAURANT_EMOJI: Record<string, string> = {
-  'The Golden Gate Grill': '🍔', 'Sakura Omakase': '🍣', 'Trattoria Contadina': '🍝',
+const CUISINE_EMOJI: Record<string, string> = {
+  'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝', 'French': '🇫🇷',
+  'Mexican': '🌮', 'Chinese': '🥟', 'Thai': '🍜', 'Korean': '🥘',
+  'Indian': '🍛', 'Vietnamese': '🍲', 'Seafood': '🦀', 'Steakhouse': '🥩',
+  'Mediterranean': '🫒', 'Taiwanese': '🧋', 'BBQ': '🔥', 'Pizza': '🍕',
 };
 
 export default function ReservationsPage() {
@@ -50,7 +53,7 @@ export default function ReservationsPage() {
       ) : (
         reservations.map((res, i) => {
           const isPast = res.status !== 'CONFIRMED';
-          const emoji = RESTAURANT_EMOJI[res.restaurantName] ?? '🍽️';
+          const emoji = CUISINE_EMOJI[res.cuisine ?? ''] ?? '🍽️';
           const borderColor = STATUS_BORDER_COLOR[res.status] ?? 'border-l-text-tertiary';
           const dateStr = format(new Date(res.dateTime), 'MMM d, yyyy');
           const timeStr = format(new Date(res.dateTime), 'h:mm a');

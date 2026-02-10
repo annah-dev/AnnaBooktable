@@ -6,8 +6,10 @@ import StarRating from '../components/common/StarRating.tsx';
 import { format } from 'date-fns';
 
 const CUISINE_EMOJI: Record<string, string> = {
-  'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝',
-  'French': '🇫🇷', 'Mexican': '🌮', 'Chinese': '🐉', 'Thai': '🍜',
+  'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝', 'French': '🇫🇷',
+  'Mexican': '🌮', 'Chinese': '🥟', 'Thai': '🍜', 'Korean': '🥘',
+  'Indian': '🍛', 'Vietnamese': '🍲', 'Seafood': '🦀', 'Steakhouse': '🥩',
+  'Mediterranean': '🫒', 'Taiwanese': '🧋', 'BBQ': '🔥', 'Pizza': '🍕',
 };
 
 export default function RestaurantDetailPage() {

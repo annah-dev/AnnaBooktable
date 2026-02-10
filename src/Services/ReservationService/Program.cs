@@ -28,23 +28,33 @@ try
         builder.Configuration.GetConnectionString("Redis")!);
 
     // HTTP clients for inter-service calls
+    var inventoryUrl = builder.Configuration["ServiceUrls:Inventory"] ?? "http://localhost:5002";
+    var paymentUrl = builder.Configuration["ServiceUrls:Payments"] ?? "http://localhost:5004";
     builder.Services.AddHttpClient("InventoryService", client =>
     {
-        client.BaseAddress = new Uri("http://localhost:5002");
+        client.BaseAddress = new Uri(inventoryUrl);
     });
     builder.Services.AddHttpClient("PaymentService", client =>
     {
-        client.BaseAddress = new Uri("http://localhost:5004");
+        client.BaseAddress = new Uri(paymentUrl);
     });
 
-    // MassTransit
+    // MassTransit - use RabbitMQ if configured, otherwise in-memory
+    var rabbitMqConn = builder.Configuration.GetConnectionString("RabbitMQ");
     builder.Services.AddMassTransit(x =>
     {
-        x.UsingRabbitMq((context, cfg) =>
+        if (!string.IsNullOrEmpty(rabbitMqConn))
         {
-            cfg.Host(new Uri(builder.Configuration.GetConnectionString("RabbitMQ")!));
-            cfg.ConfigureEndpoints(context);
-        });
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(new Uri(rabbitMqConn));
+                cfg.ConfigureEndpoints(context);
+            });
+        }
+        else
+        {
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        }
     });
 
     builder.Services.AddEndpointsApiExplorer();
@@ -311,17 +321,18 @@ try
             .Join(db.Restaurants,
                 r => r.RestaurantId,
                 rest => rest.RestaurantId,
-                (r, rest) => new { Reservation = r, RestaurantName = rest.Name })
+                (r, rest) => new { Reservation = r, RestaurantName = rest.Name, Cuisine = rest.Cuisine })
             .GroupJoin(db.TimeSlots,
                 x => x.Reservation.SlotId,
                 ts => ts.SlotId,
-                (x, slots) => new { x.Reservation, x.RestaurantName, Slot = slots.FirstOrDefault() })
+                (x, slots) => new { x.Reservation, x.RestaurantName, x.Cuisine, Slot = slots.FirstOrDefault() })
             .Select(x => new BookingResponse
             {
                 ReservationId = x.Reservation.ReservationId,
                 ConfirmationCode = x.Reservation.ConfirmationCode,
                 Status = x.Reservation.Status,
                 RestaurantName = x.RestaurantName,
+                Cuisine = x.Cuisine,
                 DateTime = x.Slot != null ? x.Slot.StartTime : x.Reservation.BookedAt,
                 PartySize = x.Reservation.PartySize
             })

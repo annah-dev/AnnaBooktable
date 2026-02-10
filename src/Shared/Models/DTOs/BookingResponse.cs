@@ -6,6 +6,7 @@ public class BookingResponse
     public string ConfirmationCode { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string RestaurantName { get; set; } = string.Empty;
+    public string? Cuisine { get; set; }
     public DateTime DateTime { get; set; }
     public int PartySize { get; set; }
 }

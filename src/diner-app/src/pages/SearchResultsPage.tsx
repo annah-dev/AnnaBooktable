@@ -9,7 +9,7 @@ export default function SearchResultsPage() {
   const navigate = useNavigate();
   const [selectedCuisine, setSelectedCuisine] = useState('All');
 
-  const city = searchParams.get('city') ?? 'San Francisco';
+  const city = searchParams.get('city') ?? 'Bellevue';
   const date = searchParams.get('date') ?? '2026-02-10';
   const time = searchParams.get('time') ?? '19:00';
   const partySize = Number(searchParams.get('partySize') ?? '2');

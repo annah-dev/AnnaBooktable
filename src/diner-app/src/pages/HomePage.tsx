@@ -6,14 +6,16 @@ import { useSearch } from '../api/search.ts';
 import { format } from 'date-fns';
 
 const CUISINE_EMOJI: Record<string, string> = {
-  'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝',
-  'French': '🇫🇷', 'Mexican': '🌮', 'Chinese': '🐉', 'Thai': '🍜',
+  'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝', 'French': '🇫🇷',
+  'Mexican': '🌮', 'Chinese': '🥟', 'Thai': '🍜', 'Korean': '🥘',
+  'Indian': '🍛', 'Vietnamese': '🍲', 'Seafood': '🦀', 'Steakhouse': '🥩',
+  'Mediterranean': '🫒', 'Taiwanese': '🧋', 'BBQ': '🔥', 'Pizza': '🍕',
 };
 
 export default function HomePage() {
   const navigate = useNavigate();
   const [loaded, setLoaded] = useState(false);
-  const { data } = useSearch({ city: 'San Francisco', partySize: 2, date: '2026-02-10' });
+  const { data } = useSearch({ city: 'Bellevue', partySize: 2, date: '2026-02-10' });
   const trending = data?.results?.slice(0, 4) ?? [];
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function HomePage() {
             transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s',
           }}
         >
-          Discover and reserve at San Francisco's finest restaurants
+          Discover and reserve at Bellevue's finest restaurants
         </p>
         <div
           style={{
@@ -62,7 +64,7 @@ export default function HomePage() {
         style={{ opacity: loaded ? 1 : 0, transition: 'opacity 0.8s ease 0.6s' }}
       >
         <h2 className="font-serif text-[28px] text-text-primary mb-2">Trending tonight</h2>
-        <p className="font-sans text-sm text-text-tertiary mb-7">Popular reservations in San Francisco</p>
+        <p className="font-sans text-sm text-text-tertiary mb-7">Popular reservations in Bellevue</p>
         <div className="flex gap-5 overflow-x-auto pb-4">
           {trending.map((r, i) => {
             const emoji = CUISINE_EMOJI[r.cuisine ?? ''] ?? '🍽️';

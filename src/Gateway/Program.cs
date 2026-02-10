@@ -17,11 +17,13 @@ try
         .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
     // CORS for React frontend
+    var allowedOrigins = builder.Configuration.GetValue<string>("ALLOWED_ORIGINS")?.Split(',')
+        ?? ["http://localhost:5173", "https://localhost:5173"];
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("Frontend", policy =>
         {
-            policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+            policy.WithOrigins(allowedOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -56,12 +58,13 @@ try
         var client = httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(5);
 
+        var config = app.Configuration;
         var services = new Dictionary<string, string>
         {
-            ["search"] = "http://localhost:5001",
-            ["inventory"] = "http://localhost:5002",
-            ["reservations"] = "http://localhost:5003",
-            ["payments"] = "http://localhost:5004"
+            ["search"] = config["ServiceUrls:Search"] ?? "http://localhost:5001",
+            ["inventory"] = config["ServiceUrls:Inventory"] ?? "http://localhost:5002",
+            ["reservations"] = config["ServiceUrls:Reservations"] ?? "http://localhost:5003",
+            ["payments"] = config["ServiceUrls:Payments"] ?? "http://localhost:5004"
         };
 
         // Check all services in parallel

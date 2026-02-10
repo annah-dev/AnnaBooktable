@@ -146,8 +146,7 @@ public class BooktableDbContext : DbContext
         modelBuilder.Entity<TimeSlot>(entity =>
         {
             entity.ToTable("time_slots");
-            // Composite PK matching partitioned table: (slot_id, date)
-            entity.HasKey(e => new { e.SlotId, e.Date });
+            entity.HasKey(e => e.SlotId);
 
             entity.Property(e => e.SlotId).HasColumnName("slot_id");
             entity.Property(e => e.RestaurantId).HasColumnName("restaurant_id");
