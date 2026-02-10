@@ -21,7 +21,9 @@
       "Bash(cmd //c \"taskkill /PID 6824 /F\")",
       "Bash(docker ps:*)",
       "Bash(npm run dev:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix search endpoint crash when time filter is provided\n\nDateOnly.ToDateTime\\(TimeOnly\\) creates DateTime with Kind=Unspecified,\nwhich Npgsql rejects for timestamp with time zone columns. Use\nDateTimeKind.Utc explicitly in both slot-filtering queries.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
