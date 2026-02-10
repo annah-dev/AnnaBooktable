@@ -107,7 +107,7 @@ try
             if (time.HasValue)
             {
                 // Filter slots within +/- 1.5 hours of requested time
-                var requestedDateTime = slotDate.ToDateTime(time.Value);
+                var requestedDateTime = slotDate.ToDateTime(time.Value, DateTimeKind.Utc);
                 var windowStart = requestedDateTime.AddHours(-1.5);
                 var windowEnd = requestedDateTime.AddHours(1.5);
                 slotsQuery = slotsQuery.Where(ts =>
@@ -149,7 +149,7 @@ try
 
             if (time.HasValue)
             {
-                var requestedDateTime = slotDate.ToDateTime(time.Value);
+                var requestedDateTime = slotDate.ToDateTime(time.Value, DateTimeKind.Utc);
                 var windowStart = requestedDateTime.AddHours(-1.5);
                 var windowEnd = requestedDateTime.AddHours(1.5);
                 slotsQuery = slotsQuery.Where(ts =>
