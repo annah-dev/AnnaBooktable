@@ -1,0 +1,26 @@
+{
+  "name": "booktable-monitor",
+  "version": "2.0.0",
+  "description": "Anna's Booktable — System Monitor (Local + Azure)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "live": "node server.js --live",
+    "sim": "node server.js",
+    "setup": "node setup.js",
+    "setup:live": "node setup.js --live",
+    "azure:deploy": "az webapp up --name booktable-monitor --resource-group anna-booktable-rg --runtime \"NODE:18-lts\" --sku F1"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "ioredis": "^5.4.1",
+    "pg": "^8.13.1",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "@azure/service-bus": "^7.9.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -511,3 +511,15 @@ $RECYCLE.BIN/
  #   S e t u p   p r o g r e s s   f i l e 
  . b o o k t a b l e _ s e t u p _ p r o g r e s s  
  
+# Azure CLI deployment defaults
+.azure/
+
+# Deployment artifacts
+deploy-*.zip
+search-logs/
+search-logs.zip
+search-logs2/
+search-logs2.zip
+search-logs-latest/
+search-logs-latest.zip
+nul

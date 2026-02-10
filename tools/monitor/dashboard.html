@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anna's Booktable — System Monitor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    @keyframes holdPulse{0%,100%{box-shadow:0 0 3px #b4530944}50%{box-shadow:0 0 12px #b4530999}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#e8ecf1}::-webkit-scrollbar-thumb{background:#a0a8b4;border-radius:3px}
+    body{font-family:'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace;background:#dfe3ea}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef,useCallback}=React;
+
+const P={page:"#dfe3ea",card:"#edf0f4",head:"#2d3748",border:"#b0b8c4",text:"#1a202c",sub:"#4a5568",muted:"#718096",amber:"#b45309",amberBg:"#fef3c7",amberBd:"#f59e0b",green:"#047857",greenBg:"#d1fae5",greenBd:"#34d399",red:"#b91c1c",redBg:"#fee2e2",redBd:"#f87171",purple:"#6d28d9",purpleBg:"#ede9fe",purpleBd:"#a78bfa",blue:"#1d4ed8",teal:"#0e7490",orange:"#c2410c",slotEmpty:"#ccd2da"};
+const uid=()=>Math.random().toString(36).slice(2,10);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const TIMES=["6:00","6:30","7:00","7:30","8:00","8:30","9:00","9:30"];
+const NAMES=["Alice","Bob","Carol","Dave","Eve","Frank","Grace","Hank","Iris","Jack","Kate","Leo","Mia","Nick","Olivia","Pete"];
+const AC=["#b45309","#b91c1c","#1d4ed8","#047857","#6d28d9","#be185d","#0d9488","#c2410c","#4338ca","#4d7c0f","#9f1239","#0e7490"];
+const SIM_R=[
+  {id:"r1",name:"The Sushi Bar",cuisine:"Japanese",tables:8,emoji:"🍣"},
+  {id:"r2",name:"Bella Notte",cuisine:"Italian",tables:6,emoji:"🍝"},
+  {id:"r3",name:"Le Petit Bistro",cuisine:"French",tables:5,emoji:"🥐"},
+  {id:"r4",name:"Ember & Oak",cuisine:"Steakhouse",tables:7,emoji:"🥩"},
+  {id:"r5",name:"Sakura Garden",cuisine:"Japanese",tables:6,emoji:"🌸"},
+  {id:"r6",name:"Taco Royale",cuisine:"Mexican",tables:5,emoji:"🌮"},
+];
+function cuisineEmoji(c){return{Japanese:"🍣",Italian:"🍝",French:"🥐",Steakhouse:"🥩",Mexican:"🌮",Chinese:"🥟",Thai:"🍜",Indian:"🍛",American:"🍔",Korean:"🥘",Mediterranean:"🫒",Seafood:"🦞",Vietnamese:"🍲"}[c]||"🍽️"}
+function formatTime(ts){if(!ts)return"";const s=""+ts;if(s.includes("T")){try{const d=new Date(s);return d.getHours()+":"+("0"+d.getMinutes()).slice(-2)}catch{}}if(s.includes(":"))return s.replace(/:\d{2}$/,"");return s}
+
+function makeSlots(rs){
+  const s={};rs.forEach(r=>{
+    if(!r.tableIds){r.tableIds=Array.from({length:r.tables},(_,i)=>r.id+"-T"+(i+1))}
+    r.tableIds.forEach(t=>TIMES.forEach(ts=>{s[t+":"+ts]={status:"AVAILABLE",heldBy:null,bookedBy:null,holdExp:null}}))
+  });return s;
+}
+
+function eColor(t){return{search:P.blue,hold:P.amber,book:P.green,success:P.green,conflict:P.red,idem:P.purple,expire:P.muted,release:P.teal,warn:P.orange,system:P.sub}[t]||P.sub}
+const B0={padding:"5px 10px",border:"none",borderRadius:4,background:"#4a5568",color:"#e2e8f0",fontSize:11,cursor:"pointer",fontFamily:"inherit"};
+const B=x=>({...B0,...x});
+
+function App(){
+  const[slots,setSlots]=useState(()=>makeSlots(SIM_R));
+  const[agents,setAgents]=useState([]);
+  const[log,setLog]=useState([]);
+  const[met,setMet]=useState({searches:0,holds:0,books:0,holdFail:0,bookFail:0,idem:0,redis:0,db:0});
+  const[speed,setSpeed]=useState(2);
+  const[on,setOn]=useState(false);
+  const[selR,setSelR]=useState(null);
+  const[chaos,setChaos]=useState(null);
+  const[mode,setMode]=useState(null); // null=detecting, "simulate", "live"
+  const[wsOk,setWsOk]=useState(false);
+  const[infra,setInfra]=useState({rabbitmq:false,redis:false,postgres:false});
+  const[restaurants,setRestaurants]=useState(SIM_R);
+  const[liveDate,setLiveDate]=useState(null);
+  const[redisStats,setRedisStats]=useState(null);
+  const[envInfo,setEnvInfo]=useState({azure:false,messaging:"rabbitmq"});
+
+  const sRef=useRef(slots);const aRef=useRef(agents);const lRef=useRef(null);const wsRef=useRef(null);
+  useEffect(()=>{sRef.current=slots},[slots]);
+  useEffect(()=>{aRef.current=agents},[agents]);
+  useEffect(()=>{if(lRef.current)lRef.current.scrollTop=lRef.current.scrollHeight},[log]);
+
+  const addLog=useCallback((type,msg,who,layer)=>{
+    setLog(p=>{const n=[...p,{id:uid(),type,msg,who,layer}];return n.length>300?n.slice(-300):n});
+  },[]);
+  const inc=useCallback((k,v=1)=>setMet(m=>({...m,[k]:m[k]+v})),[]);
+
+  // ── WebSocket (always connects, server tells us mode) ──
+  useEffect(()=>{
+    let ws,rt;
+    const connect=()=>{
+      const proto=window.location.protocol==="https:"?"wss:":"ws:";
+      const wsUrl=proto+"//"+window.location.host;
+      ws=new WebSocket(wsUrl);wsRef.current=ws;
+      ws.onopen=()=>{setWsOk(true);addLog("system","🔌 Connected to bridge","SYS")};
+      ws.onclose=()=>{setWsOk(false);rt=setTimeout(connect,2000)};
+      ws.onerror=()=>{
+        setWsOk(false);
+        // If can't connect, default to simulate mode
+        if(mode===null){setMode("simulate");setOn(true);addLog("system","🎮 No bridge found → Simulate mode","SYS")}
+      };
+      ws.onmessage=(e)=>{try{
+        const m=JSON.parse(e.data);
+        if(m.type==="mode"){
+          const newMode=m.data;
+          setMode(newMode);
+          if(newMode==="simulate"){setOn(true);addLog("system","🎮 Simulate mode (auto-started)","SYS")}
+          else{setOn(false);addLog("system","🔌 Live mode — reading from Booktable infra","SYS")}
+        }
+        else if(m.type==="env")setEnvInfo(m.data||{azure:false,messaging:"rabbitmq"});
+        else if(m.type==="connection_status")setInfra(m.data);
+        else if(m.type==="slot_state"){
+          const d=m.data;if(!d.restaurants||!d.slots)return;
+          if(d.slotDate)setLiveDate(d.slotDate);
+          const lr=d.restaurants.map(r=>({id:r.restaurant_id,name:r.name,cuisine:r.cuisine,tables:parseInt(r.table_count)||0,emoji:cuisineEmoji(r.cuisine),tableIds:[]}));
+          const ns={};const tbr={};
+          d.slots.forEach(s=>{
+            const tKey=s.restaurant_id+"-"+s.table_number;const ts=formatTime(s.start_time);
+            if(!tbr[s.restaurant_id])tbr[s.restaurant_id]=new Set();
+            tbr[s.restaurant_id].add(tKey);
+            ns[tKey+":"+ts]={status:s.status||"AVAILABLE",heldBy:s.held_by,bookedBy:s.booked_by_name||s.booked_by,holdExp:s.held_until?new Date(s.held_until).getTime():null};
+          });
+          lr.forEach(r=>{r.tableIds=Array.from(tbr[r.id]||[]).sort();r.tables=r.tableIds.length});
+          if(lr.length>0)setRestaurants(lr);
+          if(Object.keys(ns).length>0)setSlots(ns);
+        }
+        else if(m.type==="redis_state"){
+          if(m.data.stats)setRedisStats(m.data.stats);
+          if(m.data.holds){
+            const ct=m.data.holds.length;
+            setMet(prev=>({...prev,holds:Math.max(prev.holds,ct)}));
+          }
+        }
+        else if(m.type==="metrics"){
+          const d=m.data;
+          if(d.bookings)setMet(prev=>({...prev,books:parseInt(d.bookings.total_bookings)||prev.books}));
+          if(d.utilization){
+            const u=d.utilization;
+            setMet(prev=>({...prev,db:parseInt(u.total_slots)||prev.db}));
+          }
+        }
+        else if(m.type==="event"){
+          const d=m.data||m;const rk=d.routingKey||d.type||"";
+          const who=d.data?.userName||d.data?.requestingUserName||"";
+          const layer=d.layer||d.data?.defenseLayer||null;
+          const tm={"hold.acquired":"hold","hold.failed":"conflict","hold.expired":"expire","reservation.created":"success","reservation.conflict":"conflict","reservation.cancelled":"release","idempotency.hit":"idem","search.executed":"search","payment.charged":"book","payment.failed":"conflict"};
+          addLog(tm[rk]||"system",JSON.stringify(d.data||d).slice(0,140),who,layer);
+          const mm={"hold.acquired":"holds","hold.failed":"holdFail","reservation.created":"books","reservation.conflict":"bookFail","idempotency.hit":"idem","search.executed":"searches"};
+          if(mm[rk])inc(mm[rk]);
+          if(rk.startsWith("hold."))inc("redis");
+          if(rk.startsWith("reservation."))inc("db");
+        }
+      }catch{}}
+    };
+    // Small delay to let server boot
+    const t=setTimeout(connect,500);
+    return()=>{clearTimeout(t);clearTimeout(rt);if(ws)ws.close()};
+  },[addLog,inc]);
+
+  // ── Simulate engine ──
+  useEffect(()=>{
+    if(mode!=="simulate"||!on)return;
+    const iv=setInterval(()=>{
+      if(aRef.current.length<12&&Math.random()<0.3*speed){
+        const name=pick(NAMES),color=AC[aRef.current.length%AC.length];
+        setAgents(p=>[...p,{id:uid(),name,color,st:"SEARCH",tgt:null,hk:null,t0:Date.now()}]);
+        addLog("search",name+" searching...",name);inc("searches");
+      }
+      setAgents(pa=>{const now=Date.now();return pa.map(a=>{
+        const el=now-a.t0,sf=1500/speed;
+        if(a.st==="SEARCH"&&el>sf){
+          const r=pick(restaurants);if(!r.tableIds||!r.tableIds.length)return{...a,t0:now};
+          const t=pick(TIMES),ti=pick(r.tableIds),k=ti+":"+t,sl=sRef.current[k];
+          if(sl&&sl.status==="AVAILABLE"){
+            if(chaos==="redis_down"){addLog("warn",a.name+" → Redis DOWN, direct to DB",a.name,"L1");inc("redis");return{...a,st:"DIRECT",tgt:{r,t,ti,k},t0:now}}
+            inc("redis");setSlots(p=>({...p,[k]:{...p[k],status:"HELD",heldBy:a.name,holdExp:now+5000/speed}}));
+            inc("holds");addLog("hold","🛡️ L1 SETNX hold:"+k+" "+a.name+" EX 300 → OK",a.name,"L1");
+            return{...a,st:"PAY",tgt:{r,t,ti,k},hk:k,t0:now};
+          }else if(sl){inc("holdFail");addLog("conflict",a.name+" → hold:"+k+" FAILED (already held)",a.name,"L1")}
+          return{...a,t0:now};
+        }
+        if(a.st==="PAY"&&el>sf*1.5){
+          inc("redis");inc("db");const cur=sRef.current[a.hk];
+          if(cur&&cur.status==="HELD"&&cur.heldBy===a.name){
+            setSlots(p=>({...p,[a.hk]:{...p[a.hk],status:"BOOKED",bookedBy:a.name,heldBy:null}}));
+            inc("books");addLog("book","🛡️ L2 UNIQUE(restaurant,table,time) ✓ COMMIT",a.name,"L2");
+            addLog("success","✅ "+a.name+" → "+a.tgt.r.name+" T"+a.tgt.ti.split("-T")[1]+"@"+a.tgt.t+" CONFIRMED",a.name);
+            return{...a,st:"DONE",t0:now};
+          }
+          inc("bookFail");addLog("conflict","🛡️ L2 UNIQUE CONSTRAINT VIOLATION → 409 Conflict",a.name,"L2");return{...a,st:"FAIL",t0:now};
+        }
+        if(a.st==="DIRECT"&&el>sf*2){
+          inc("db");
+          if(sRef.current[a.tgt.k]&&sRef.current[a.tgt.k].status==="AVAILABLE"){
+            setSlots(p=>({...p,[a.tgt.k]:{...p[a.tgt.k],status:"BOOKED",bookedBy:a.name}}));
+            inc("books");addLog("book","🛡️ L2 Direct booking → UNIQUE ✓ (no hold, DB protects)",a.name,"L2");return{...a,st:"DONE",t0:now};
+          }
+          inc("bookFail");addLog("conflict","🛡️ L2 UNIQUE VIOLATION 409 (race lost)",a.name,"L2");return{...a,st:"FAIL",t0:now};
+        }
+        if((a.st==="DONE"||a.st==="FAIL")&&el>sf*2)return null;
+        return a;
+      }).filter(Boolean)});
+      setSlots(p=>{const now=Date.now(),n={...p};let c=false;Object.keys(n).forEach(k=>{if(n[k].status==="HELD"&&n[k].holdExp&&now>n[k].holdExp){n[k]={...n[k],status:"AVAILABLE",heldBy:null,holdExp:null};c=true}});return c?n:p});
+      if(Math.random()<0.05*speed){const bk=Object.keys(sRef.current).filter(k=>sRef.current[k].status==="BOOKED");if(bk.length){const k=pick(bk);setSlots(p=>({...p,[k]:{...p[k],status:"AVAILABLE",bookedBy:null}}));addLog("release","🔓 Cancelled "+k,"")}}
+    },300/speed);
+    return()=>clearInterval(iv);
+  },[mode,on,speed,chaos,restaurants,addLog,inc]);
+
+  // ── Computed ──
+  const sc={AVAILABLE:0,HELD:0,BOOKED:0};Object.values(slots).forEach(s=>{sc[s.status]=(sc[s.status]||0)+1});
+  const tot=Object.keys(slots).length||1;
+  const util=((sc.BOOKED/tot)*100).toFixed(1);
+  const cr=met.books>0?((met.bookFail/(met.books+met.bookFail))*100).toFixed(1):"0.0";
+  const vr=selR||restaurants[0];
+  const reset=()=>{if(mode==="simulate"){setSlots(makeSlots(SIM_R));setRestaurants(SIM_R)}setAgents([]);setLog([]);setMet({searches:0,holds:0,books:0,holdFail:0,bookFail:0,idem:0,redis:0,db:0});setChaos(null)};
+
+  // ── Loading state ──
+  if(mode===null)return React.createElement("div",{style:{minHeight:"100vh",background:P.page,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}},
+    React.createElement("div",{style:{fontSize:22,fontWeight:700,color:"#fbbf24",letterSpacing:3}},"ANNA'S BOOKTABLE"),
+    React.createElement("div",{style:{fontSize:12,color:P.muted}},"Connecting to monitor bridge..."),
+    React.createElement("div",{style:{width:32,height:32,border:"3px solid "+P.border,borderTopColor:P.amber,borderRadius:"50%",animation:"spin 1s linear infinite"}}),
+    React.createElement("style",null,"@keyframes spin{to{transform:rotate(360deg)}}")
+  );
+
+  // ── RENDER ──
+  return React.createElement("div",{style:{minHeight:"100vh",background:P.page,color:P.text,fontFamily:"inherit"}},
+    // HEADER
+    React.createElement("div",{style:{background:P.head,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        React.createElement("div",{style:{width:10,height:10,borderRadius:"50%",background:(mode==="live"?wsOk&&infra.postgres:on)?"#34d399":"#718096"}}),
+        React.createElement("span",{style:{fontSize:17,fontWeight:700,letterSpacing:2,color:"#fbbf24"}},"ANNA'S BOOKTABLE"),
+        React.createElement("span",{style:{fontSize:10,color:"#a0aec0",letterSpacing:1}},mode==="live"?"LIVE":"SIMULATE"),
+        liveDate&&mode==="live"&&React.createElement("span",{style:{fontSize:10,color:"#68d391",marginLeft:8}},new Date(liveDate).toLocaleDateString())
+      ),
+      React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
+        React.createElement("div",{style:{padding:"4px 10px",borderRadius:4,fontSize:10,fontWeight:700,background:mode==="live"?"#3182ce":"#d69e2e",color:"#fff"}},mode==="live"?"🔌 LIVE":"🎮 SIM"),
+        mode==="simulate"&&React.createElement(React.Fragment,null,
+          React.createElement("button",{onClick:()=>setOn(!on),style:B({background:on?"#c53030":"#2f855a",color:"#fff",fontWeight:700})},on?"⏸ PAUSE":"▶ START"),
+          [1,2,4].map(s=>React.createElement("button",{key:s,onClick:()=>setSpeed(s),style:B({background:speed===s?"#d69e2e":"#4a5568",color:"#fff",minWidth:28,fontWeight:speed===s?700:400})},s+"x"))
+        ),
+        React.createElement("button",{onClick:reset,style:B({background:"#4a5568",color:"#e2e8f0"})},"↻ RESET")
+      )
+    ),
+
+    // INFRA BAR
+    mode==="live"&&React.createElement("div",{style:{background:"#2d3748",padding:"6px 20px",display:"flex",gap:14,fontSize:10,color:"#e2e8f0",alignItems:"center"}},
+      React.createElement("span",{style:{letterSpacing:2,fontWeight:700,color:"#a0aec0"}},"INFRA"),
+      envInfo.azure&&React.createElement("span",{style:{padding:"1px 6px",borderRadius:3,background:"#2b6cb0",color:"#fff",fontWeight:700,fontSize:9}},"AZURE"),
+      [["Bridge",wsOk],[envInfo.messaging==="service-bus"?"ServiceBus":"RabbitMQ",infra.messaging],["Redis",infra.redis],["PostgreSQL",infra.postgres]].map(([n,c])=>
+        React.createElement("span",{key:n,style:{color:c?"#68d391":"#fc8181"}},"● "+n)
+      ),
+      redisStats&&React.createElement("span",{style:{color:"#a0aec0",marginLeft:10}},"Redis hit: "+redisStats.hitRate+" • Mem: "+redisStats.memory)
+    ),
+
+    // CHAOS BAR (simulate only)
+    mode==="simulate"&&React.createElement("div",{style:{background:chaos?"#fed7d7":P.card,borderBottom:"1px solid "+(chaos?P.redBd:P.border),padding:"7px 20px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}},
+      React.createElement("span",{style:{fontSize:10,color:P.red,letterSpacing:2,fontWeight:700}},"🔥 FAILURE SIM"),
+      [{id:null,l:"NORMAL"},{id:"redis_down",l:"REDIS DOWN"},{id:"split_brain",l:"SPLIT BRAIN"}].map(c=>
+        React.createElement("button",{key:c.id||"x",onClick:()=>setChaos(c.id),style:B({background:chaos===c.id?(c.id?"#c53030":"#2f855a"):P.card,color:chaos===c.id?"#fff":P.sub,fontSize:10,border:"1px solid "+(chaos===c.id?"transparent":P.border)})},c.l)
+      ),
+      chaos&&React.createElement("span",{style:{fontSize:10,color:P.amber,fontWeight:600}},"⚠ "+({redis_down:"Holds disabled — DB unique constraint protects",split_brain:"Inconsistent holds — DB saves us"}[chaos]||""))
+    ),
+
+    // METRICS
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:2,padding:2,background:P.border}},
+      [["SEARCHES",met.searches,P.blue],["HOLDS L1",met.holds,P.amber],["BOOKINGS L2",met.books,P.green],["CONFLICTS",met.holdFail+met.bookFail,P.red],["IDEM L3",met.idem,P.purple],["REDIS OPS",met.redis,P.teal],["DB OPS",met.db,"#9b2c2c"],["UTIL",util+"%",parseFloat(util)>60?P.red:P.green],["CONFLICT%",cr+"%",parseFloat(cr)>5?P.red:P.green],[mode==="live"?"HELD":"AGENTS",mode==="live"?sc.HELD:agents.length,P.orange]].map(([l,v,c])=>
+        React.createElement("div",{key:l,style:{background:P.card,padding:"8px 12px"}},
+          React.createElement("div",{style:{fontSize:8,color:P.muted,letterSpacing:1.5,marginBottom:2}},l),
+          React.createElement("div",{style:{fontSize:17,fontWeight:700,color:c,fontVariantNumeric:"tabular-nums"}},v))
+      )
+    ),
+
+    // MAIN
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 320px",minHeight:"calc(100vh - 260px)"}},
+      // LEFT
+      React.createElement("div",{style:{padding:14,overflow:"auto"}},
+        // Restaurant tabs
+        React.createElement("div",{style:{display:"flex",gap:5,marginBottom:14,flexWrap:"wrap"}},
+          restaurants.map(r=>{
+            const rs=Object.entries(slots).filter(([k])=>k.startsWith(r.id));
+            const bk=rs.filter(([,v])=>v.status==="BOOKED").length,hl=rs.filter(([,v])=>v.status==="HELD").length;
+            const sel=vr.id===r.id;
+            return React.createElement("button",{key:r.id,onClick:()=>setSelR(r),style:{...B0,padding:"7px 10px",minWidth:130,textAlign:"left",background:sel?P.amberBg:P.card,border:"2px solid "+(sel?P.amberBd:P.border),boxShadow:sel?"0 2px 8px rgba(180,83,9,0.2)":"0 1px 3px rgba(0,0,0,0.06)"}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5}},
+                React.createElement("span",null,r.emoji),
+                React.createElement("span",{style:{fontSize:11,fontWeight:600,color:sel?"#92400e":P.text}},r.name)),
+              React.createElement("div",{style:{fontSize:9,color:P.muted,display:"flex",gap:6,marginTop:2}},
+                React.createElement("span",{style:{color:P.green,fontWeight:600}},"●"+bk),
+                React.createElement("span",{style:{color:P.amber,fontWeight:600}},"●"+hl),
+                React.createElement("span",null,(r.tableIds?r.tableIds.length:r.tables)+"T"))
+            )})
+        ),
+        // Table grid
+        React.createElement("div",{style:{background:P.card,borderRadius:8,border:"2px solid "+P.border,overflow:"hidden",boxShadow:"0 2px 10px rgba(0,0,0,0.1)"}},
+          React.createElement("div",{style:{padding:"10px 14px",borderBottom:"2px solid "+P.border,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#e2e8f0"}},
+            React.createElement("span",{style:{fontSize:13,fontWeight:700}},vr.emoji+" "+vr.name,React.createElement("span",{style:{fontWeight:400,color:P.muted,marginLeft:8,fontSize:11}},vr.cuisine+" • "+(vr.tableIds?vr.tableIds.length:vr.tables)+"T")),
+            React.createElement("div",{style:{display:"flex",gap:10,fontSize:10}},
+              React.createElement("span",null,React.createElement("span",{style:{color:P.green}},"●")," Booked"),
+              React.createElement("span",null,React.createElement("span",{style:{color:P.amber}},"●")," Held"),
+              React.createElement("span",null,React.createElement("span",{style:{color:P.slotEmpty}},"●")," Avail"))),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"72px repeat("+TIMES.length+",1fr)",background:"#e2e8f0",borderBottom:"1px solid "+P.border}},
+            React.createElement("div",{style:{padding:"6px 10px",fontSize:9,fontWeight:700,color:P.sub}},"TABLE"),
+            TIMES.map(t=>React.createElement("div",{key:t,style:{padding:"6px 2px",fontSize:9,fontWeight:700,color:P.sub,textAlign:"center",borderLeft:"1px solid "+P.border}},t))),
+          (vr.tableIds||[]).map(tId=>
+            React.createElement("div",{key:tId,style:{display:"grid",gridTemplateColumns:"72px repeat("+TIMES.length+",1fr)",borderBottom:"1px solid "+P.border}},
+              React.createElement("div",{style:{padding:"8px 10px",fontSize:10,color:P.sub,fontWeight:600}},"🪑 "+(tId.split("-T")[1]||tId.split("-").pop())),
+              TIMES.map(ts=>{
+                const sl=slots[tId+":"+ts];const b=sl&&sl.status==="BOOKED",h=sl&&sl.status==="HELD";
+                return React.createElement("div",{key:ts,style:{borderLeft:"1px solid "+P.border,padding:3,display:"flex",alignItems:"center",justifyContent:"center"}},
+                  React.createElement("div",{style:{width:"100%",height:30,borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,background:b?P.greenBg:h?P.amberBg:P.slotEmpty,border:"2px solid "+(b?P.greenBd:h?P.amberBd:"#bbc2cc"),color:b?P.green:h?P.amber:"#8892a2",transition:"all 0.3s",animation:h?"holdPulse 2s infinite":"none"}},
+                    b?(sl.bookedBy?(""+sl.bookedBy).slice(0,4):"BKD"):h?("⏳"+(sl.heldBy||"").toString().slice(0,3)):"—"))}))
+          ),
+          (!vr.tableIds||vr.tableIds.length===0)&&React.createElement("div",{style:{padding:24,textAlign:"center",color:P.muted,fontSize:12}},mode==="live"?"Waiting for slot data...":"No tables")
+        ),
+        // Defense layers
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:14}},
+          [{l:"L1",n:"Redis SETNX",p:"UX Hold (5 min)",ops:met.holds,cf:met.holdFail,c:P.amber,bg:P.amberBg,bd:P.amberBd,st:chaos==="redis_down"?"DOWN":chaos==="split_brain"?"DEGRADED":mode==="live"?infra.redis?"ACTIVE":"DOWN":"ACTIVE"},
+           {l:"L2",n:"DB UNIQUE",p:"Safety Net",ops:met.books,cf:met.bookFail,c:P.green,bg:P.greenBg,bd:P.greenBd,st:mode==="live"?infra.postgres?"ACTIVE":"DOWN":"ACTIVE",safe:true},
+           {l:"L3",n:"Idempotency",p:"Retry Protection",ops:met.idem,cf:0,c:P.purple,bg:P.purpleBg,bd:P.purpleBd,st:chaos==="redis_down"?"DEGRADED":mode==="live"?infra.redis?"ACTIVE":"DEGRADED":"ACTIVE"}
+          ].map(d=>
+            React.createElement("div",{key:d.l,style:{background:P.card,borderRadius:8,border:"2px solid "+(d.st==="DOWN"?P.redBd:d.st==="DEGRADED"?P.amberBd:P.border),padding:14,position:"relative",boxShadow:"0 2px 6px rgba(0,0,0,0.08)"}},
+              d.safe&&React.createElement("div",{style:{position:"absolute",top:7,right:7,fontSize:7,padding:"2px 5px",borderRadius:3,background:P.greenBg,color:P.green,fontWeight:700,border:"1px solid "+P.greenBd}},"SAFETY NET"),
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:6}},
+                React.createElement("span",{style:{fontSize:10,padding:"2px 6px",borderRadius:3,background:d.bg,color:d.c,fontWeight:700,border:"1px solid "+d.bd}},d.l),
+                React.createElement("span",{style:{fontSize:12,fontWeight:700}},d.n)),
+              React.createElement("div",{style:{fontSize:9,color:P.muted,marginBottom:6}},d.p),
+              React.createElement("div",{style:{display:"flex",gap:14,fontSize:10}},
+                React.createElement("span",null,"Ops: ",React.createElement("b",{style:{color:d.c}},d.ops)),
+                React.createElement("span",null,"Fail: ",React.createElement("b",{style:{color:d.cf>0?P.red:P.muted}},d.cf))),
+              React.createElement("div",{style:{marginTop:6,fontSize:9,padding:"2px 6px",borderRadius:3,display:"inline-block",fontWeight:700,background:d.st==="ACTIVE"?P.greenBg:d.st==="DEGRADED"?P.amberBg:P.redBg,color:d.st==="ACTIVE"?P.green:d.st==="DEGRADED"?P.amber:P.red,border:"1px solid "+(d.st==="ACTIVE"?P.greenBd:d.st==="DEGRADED"?P.amberBd:P.redBd)}},(d.st==="DOWN"?"✗":d.st==="DEGRADED"?"⚠":"✓")+" "+d.st)))
+        )
+      ),
+      // RIGHT: agents/log
+      React.createElement("div",{style:{borderLeft:"2px solid "+P.border,display:"flex",flexDirection:"column",background:P.card}},
+        mode==="simulate"&&React.createElement("div",{style:{padding:10,borderBottom:"1px solid "+P.border,maxHeight:190,overflow:"auto"}},
+          React.createElement("div",{style:{fontSize:10,color:P.muted,letterSpacing:2,marginBottom:6,fontWeight:700}},"👥 AGENTS ("+agents.length+")"),
+          agents.length===0?React.createElement("div",{style:{fontSize:10,color:P.muted}},"Starting..."):
+          agents.map(a=>React.createElement("div",{key:a.id,style:{display:"flex",alignItems:"center",gap:6,padding:"3px 6px",marginBottom:3,borderRadius:4,background:P.page,border:"1px solid "+P.border,animation:"fadeIn 0.3s"}},
+            React.createElement("div",{style:{width:6,height:6,borderRadius:"50%",background:a.color}}),
+            React.createElement("span",{style:{fontSize:10,color:a.color,fontWeight:700,minWidth:44}},a.name),
+            React.createElement("span",{style:{fontSize:8,padding:"1px 5px",borderRadius:3,fontWeight:700,background:{SEARCH:"#dbeafe",PAY:P.amberBg,DIRECT:P.redBg,DONE:P.greenBg,FAIL:P.redBg}[a.st]||P.page,color:{SEARCH:P.blue,PAY:P.amber,DIRECT:P.red,DONE:P.green,FAIL:P.red}[a.st]||P.muted}},{SEARCH:"SEARCH",PAY:"PAYING",DIRECT:"DIRECT",DONE:"DONE",FAIL:"REJECT"}[a.st]),
+            a.tgt&&React.createElement("span",{style:{fontSize:8,color:P.muted}},a.tgt.r.emoji+"T"+a.tgt.ti.split("-T")[1]+"@"+a.tgt.t)))
+        ),
+        React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column"}},
+          React.createElement("div",{style:{padding:"6px 10px",borderBottom:"1px solid "+P.border,fontSize:10,color:P.muted,letterSpacing:2,fontWeight:700}},"📋 EVENT LOG"),
+          React.createElement("div",{ref:lRef,style:{flex:1,overflow:"auto",padding:6,fontSize:10,lineHeight:1.7}},
+            log.length===0?React.createElement("div",{style:{color:P.muted,padding:6}},"Waiting for events..."):
+            log.map(e=>React.createElement("div",{key:e.id,style:{padding:"1px 4px",borderLeft:"3px solid "+eColor(e.type),marginBottom:2,display:"flex",gap:5,alignItems:"flex-start"}},
+              e.layer&&React.createElement("span",{style:{fontSize:8,padding:"0 4px",borderRadius:2,fontWeight:700,flexShrink:0,background:e.layer==="L1"?P.amberBg:e.layer==="L2"?P.greenBg:P.purpleBg,color:e.layer==="L1"?P.amber:e.layer==="L2"?P.green:P.purple,border:"1px solid "+(e.layer==="L1"?P.amberBd:e.layer==="L2"?P.greenBd:P.purpleBd)}},e.layer),
+              React.createElement("span",{style:{color:eColor(e.type)}},e.msg)))))
+      )
+    )
+  );
+}
+
+ReactDOM.render(React.createElement(App),document.getElementById("root"));
+</script>
+</body>
+</html>
