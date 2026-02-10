@@ -20,7 +20,7 @@ export default function TimeSlotPill({ startTime, available = true, selected = f
 
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
       className={`font-mono text-xs px-3.5 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer
         ${selected
           ? 'bg-accent text-bg-primary border-accent font-medium'

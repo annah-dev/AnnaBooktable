@@ -202,7 +202,7 @@ INSERT INTO restaurants (restaurant_id, name, cuisine, price_level, address, cit
  '{"mon":{"open":"11:00","close":"21:00"},"tue":{"open":"11:00","close":"21:00"},"wed":{"open":"11:00","close":"21:00"},"thu":{"open":"11:00","close":"21:00"},"fri":{"open":"11:00","close":"22:00"},"sat":{"open":"11:00","close":"22:00"},"sun":{"open":"11:00","close":"21:00"}}',
  '{"wifi": true, "outdoor_seating": true, "private_dining": false, "wheelchair_accessible": true}'),
 
--- === SEAFOOD (3) ===
+-- === SEAFOOD (4) ===
 ('b0000000-0000-0000-0000-000000000046', 'The Crab Pot', 'Seafood', 3, '10246 NE 10th St', 'Bellevue', 'WA', '98004', 47.6165, -122.1985, 4.20, 'Seafood feast house known for its signature Seafeast — buckets of crab, shrimp, and clams.',
  '{"mon":{"open":"11:00","close":"21:30"},"tue":{"open":"11:00","close":"21:30"},"wed":{"open":"11:00","close":"21:30"},"thu":{"open":"11:00","close":"21:30"},"fri":{"open":"11:00","close":"22:00"},"sat":{"open":"11:00","close":"22:00"},"sun":{"open":"11:00","close":"21:00"}}',
  '{"wifi": true, "outdoor_seating": false, "private_dining": true, "wheelchair_accessible": true}'),
@@ -214,6 +214,10 @@ INSERT INTO restaurants (restaurant_id, name, cuisine, price_level, address, cit
 ('b0000000-0000-0000-0000-000000000048', 'Anthony''s HomePort', 'Seafood', 3, '135 Lake St S', 'Kirkland', 'WA', '98033', 47.6763, -122.2064, 4.30, 'Pacific Northwest seafood institution with waterfront dining, fresh oysters, and seasonal catches.',
  '{"mon":{"open":"11:30","close":"21:30"},"tue":{"open":"11:30","close":"21:30"},"wed":{"open":"11:30","close":"21:30"},"thu":{"open":"11:30","close":"21:30"},"fri":{"open":"11:30","close":"22:00"},"sat":{"open":"11:00","close":"22:00"},"sun":{"open":"11:00","close":"21:00"}}',
  '{"wifi": true, "outdoor_seating": true, "private_dining": true, "wheelchair_accessible": true}'),
+
+('b0000000-0000-0000-0000-000000000061', 'Seastar Restaurant & Raw Bar', 'Seafood', 4, '205 108th Ave NE', 'Bellevue', 'WA', '98004', 47.6158, -122.1955, 4.60, 'Premier Bellevue seafood destination featuring an acclaimed raw bar, sustainably sourced fish, and creative Pacific Northwest preparations in a sleek, modern setting.',
+ '{"mon":{"open":"11:30","close":"22:00"},"tue":{"open":"11:30","close":"22:00"},"wed":{"open":"11:30","close":"22:00"},"thu":{"open":"11:30","close":"22:00"},"fri":{"open":"11:30","close":"23:00"},"sat":{"open":"11:00","close":"23:00"},"sun":{"open":"11:00","close":"21:30"}}',
+ '{"wifi": true, "outdoor_seating": true, "private_dining": false, "wheelchair_accessible": true}'),
 
 -- === FRENCH (3) ===
 ('b0000000-0000-0000-0000-000000000049', 'Mistral Kitchen', 'French', 4, '10253 Main St', 'Bellevue', 'WA', '98004', 47.6134, -122.1993, 4.60, 'Chef-driven French-inspired cuisine with Pacific NW ingredients, an open kitchen, and artisan cocktails.',
@@ -307,6 +311,10 @@ BEGIN
     END LOOP;
 END $$;
 
+-- Seastar gets a Bar group (not auto-generated)
+INSERT INTO table_groups (table_group_id, restaurant_id, name, attributes, pricing, display_order) VALUES
+    (uuid_generate_v4(), 'b0000000-0000-0000-0000-000000000061', 'Bar', '{"bar_seating": true}', '{"base_multiplier": 1.0}', 2);
+
 
 -- ===== TABLES (3-6 per restaurant) =====
 DO $$
@@ -327,6 +335,7 @@ BEGIN
                 WHEN g.name = 'Patio' THEN 2
                 WHEN g.name = 'Private Room' THEN 1
                 WHEN g.name = 'BBQ Grill Seating' THEN 3
+                WHEN g.name = 'Bar' THEN 4
                 ELSE 2
             END;
 
@@ -335,6 +344,7 @@ BEGIN
                 WHEN g.name = 'Patio' THEN 'P'
                 WHEN g.name = 'Private Room' THEN 'R'
                 WHEN g.name = 'BBQ Grill Seating' THEN 'G'
+                WHEN g.name = 'Bar' THEN 'B'
                 ELSE 'T'
             END;
 
@@ -343,6 +353,8 @@ BEGIN
                 -- Vary capacity: small (2), medium (4), large (6), extra (8/10)
                 cap := CASE
                     WHEN g.name = 'Private Room' THEN 10
+                    WHEN g.name = 'Bar' AND i <= 3 THEN 2
+                    WHEN g.name = 'Bar' AND i = 4 THEN 4
                     WHEN i = 1 THEN 2
                     WHEN i = 2 THEN 4
                     WHEN i = 3 THEN 4

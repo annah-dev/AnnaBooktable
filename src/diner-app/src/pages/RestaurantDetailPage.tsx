@@ -3,7 +3,11 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useRestaurantDetail } from '../api/search.ts';
 import { useAvailability } from '../api/inventory.ts';
 import StarRating from '../components/common/StarRating.tsx';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
+
+function getTomorrow() {
+  return addDays(new Date(), 1).toISOString().slice(0, 10);
+}
 
 const CUISINE_EMOJI: Record<string, string> = {
   'American': '🍔', 'Japanese': '🍣', 'Italian': '🍝', 'French': '🇫🇷',
@@ -17,7 +21,7 @@ export default function RestaurantDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('All Seating');
-  const date = searchParams.get('date') ?? '2026-02-10';
+  const date = searchParams.get('date') ?? getTomorrow();
   const partySize = Number(searchParams.get('partySize')) || 2;
 
   const { data: restaurant } = useRestaurantDetail(id ?? '');

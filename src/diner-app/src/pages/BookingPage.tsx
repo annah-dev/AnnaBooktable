@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import CountdownTimer from '../components/booking/CountdownTimer.tsx';
 import ConfirmationView from '../components/booking/ConfirmationView.tsx';
@@ -16,7 +16,7 @@ export default function BookingPage() {
   const state = location.state as { restaurant?: { name: string; restaurantId?: string }; slot?: { startTime: string; tableGroupName?: string; capacity?: number } } | null;
 
   const restaurantName = state?.restaurant?.name ?? 'Restaurant';
-  const slotTime = state?.slot?.startTime ?? '2026-02-10T19:00:00';
+  const slotTime = state?.slot?.startTime ?? '';
   const tableInfo = state?.slot?.tableGroupName ?? 'Table';
   const capacity = state?.slot?.capacity ?? 2;
 
@@ -32,9 +32,21 @@ export default function BookingPage() {
   const createReservation = useCreateReservation();
   const countdown = useCountdown(expiresAt);
 
-  // Acquire hold on mount
+  // Ref to prevent double hold acquisition (React StrictMode)
+  const holdAttempted = useRef(false);
+
+  // BUG 3 fix: If no navigation state (direct URL or stale history), redirect away
   useEffect(() => {
-    if (!slotId || step !== 'acquiring') return;
+    if (!state?.restaurant || !state?.slot) {
+      navigate('/', { replace: true });
+    }
+  }, [state, navigate]);
+
+  // Acquire hold on mount (StrictMode-safe via ref)
+  useEffect(() => {
+    if (!slotId || holdAttempted.current) return;
+    holdAttempted.current = true;
+
     acquireHold.mutate(
       { slotId, userId: USER_ID },
       {
@@ -52,6 +64,14 @@ export default function BookingPage() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotId]);
+
+  // BUG 3 fix: When countdown expires, redirect back
+  useEffect(() => {
+    if (countdown.isExpired && expiresAt && step !== 'confirmed' && step !== 'confirming' && step !== 'error') {
+      setErrorMessage('Your hold has expired. Please try again.');
+      setStep('error');
+    }
+  }, [countdown.isExpired, expiresAt, step]);
 
   const handleRelease = () => {
     if (slotId) releaseHold.mutate(slotId);
@@ -80,6 +100,8 @@ export default function BookingPage() {
             partySize: data.partySize,
           });
           setStep('confirmed');
+          // Replace history so browser back doesn't return to this booking page
+          window.history.replaceState(null, '', window.location.pathname);
         },
         onError: (err: any) => {
           const msg = err?.response?.data?.error ?? 'Booking failed. Please try again.';
@@ -125,7 +147,7 @@ export default function BookingPage() {
     );
   }
 
-  const timeStr = format(new Date(slotTime), 'h:mm a');
+  const timeStr = slotTime ? format(new Date(slotTime), 'h:mm a') : '--:--';
 
   return (
     <div
@@ -136,7 +158,7 @@ export default function BookingPage() {
 
       <p className="font-sans text-sm text-text-tertiary mt-4 mb-1">Your table is held</p>
       <p className="font-sans text-xs text-text-tertiary mb-8 opacity-60">
-        🛡️ Layer 1: Redis SETNX hold — 5 minute protection
+        Layer 1: Redis SETNX hold — 5 minute protection
       </p>
 
       <div className="bg-bg-secondary rounded-2xl p-8 w-[420px] border border-border">
@@ -205,7 +227,7 @@ export default function BookingPage() {
               </div>
             </div>
             <div className="px-3.5 py-2.5 rounded-[10px] accent-glow font-sans text-xs text-accent mb-4 border border-accent-glow">
-              🛡️ Defense layers active: Redis Hold (L1) · DB Constraint (L2) · Idempotency Key (L3)
+              Defense layers active: Redis Hold (L1) · DB Constraint (L2) · Idempotency Key (L3)
             </div>
             <button
               onClick={handleConfirm}

@@ -149,11 +149,12 @@ CREATE TABLE reservations (
     idempotency_key   VARCHAR(100),
     booked_at         TIMESTAMP NOT NULL DEFAULT NOW(),
     created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
-
-    -- One reservation per time slot
-    UNIQUE (slot_id)
+    updated_at        TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- One ACTIVE reservation per time slot (cancelled reservations don't block re-booking)
+CREATE UNIQUE INDEX idx_reservations_slot_active ON reservations(slot_id)
+    WHERE status NOT IN ('CANCELLED');
 
 CREATE INDEX idx_reservations_user ON reservations(user_id, created_at DESC);
 CREATE INDEX idx_reservations_restaurant ON reservations(restaurant_id, booked_at DESC);

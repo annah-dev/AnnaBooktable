@@ -40,7 +40,22 @@ public class RedisService
                 return (true, holdToken);
             }
 
-            _logger.LogInformation("Hold denied for slot {SlotId} - already held", slotId);
+            // If hold already exists, check if it belongs to the same user (allows re-hold)
+            var existing = await Db.StringGetAsync(key);
+            if (!existing.IsNullOrEmpty)
+            {
+                var parts = existing.ToString().Split(':');
+                if (parts.Length >= 1 && parts[0] == userId.ToString())
+                {
+                    // Same user - refresh TTL and return existing token
+                    var existingToken = parts.Length >= 2 ? parts[1] : holdToken;
+                    await Db.KeyExpireAsync(key, TimeSpan.FromSeconds(ttlSeconds));
+                    _logger.LogInformation("Hold refreshed for slot {SlotId} by same user {UserId}", slotId, userId);
+                    return (true, existingToken);
+                }
+            }
+
+            _logger.LogInformation("Hold denied for slot {SlotId} - already held by another user", slotId);
             return (false, string.Empty);
         }
         catch (Exception ex)
