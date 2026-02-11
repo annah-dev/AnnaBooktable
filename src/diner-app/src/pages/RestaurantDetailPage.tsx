@@ -55,12 +55,12 @@ export default function RestaurantDetailPage() {
   });
 
   return (
-    <div className="max-w-[900px] mx-auto px-8 pb-16">
+    <div className="max-w-[900px] mx-auto px-4 md:px-8 pb-16">
       {/* Hero */}
-      <div className="h-[300px] rounded-b-[20px] overflow-hidden bg-gradient-to-br from-bg-elevated via-bg-hover to-bg-elevated flex items-center justify-center text-[100px] relative">
+      <div className="h-[200px] md:h-[300px] rounded-b-[20px] overflow-hidden bg-gradient-to-br from-bg-elevated via-bg-hover to-bg-elevated flex items-center justify-center text-[100px] relative">
         {emoji}
         <div className="absolute bottom-0 left-0 right-0 px-8 pb-6 pt-16" style={{ background: 'linear-gradient(transparent, #0C0A09)' }}>
-          <h1 className="font-serif text-[40px] font-bold text-text-primary mb-2">{restaurant.name}</h1>
+          <h1 className="font-serif text-[28px] md:text-[40px] font-bold text-text-primary mb-2">{restaurant.name}</h1>
           <div className="flex gap-4 items-center">
             <span className="font-sans text-sm text-text-secondary">{restaurant.cuisine}</span>
             <span className="text-accent-glow">·</span>
@@ -73,7 +73,7 @@ export default function RestaurantDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_300px] gap-10 mt-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 lg:gap-10 mt-8">
         {/* Left column */}
         <div>
           <p className="font-sans text-[15px] text-text-secondary leading-relaxed mb-8">
@@ -83,7 +83,7 @@ export default function RestaurantDetailPage() {
           <h3 className="font-serif text-2xl text-text-primary mb-5">Choose your table</h3>
 
           {/* Tabs */}
-          <div className="flex gap-0 border-b border-border mb-6">
+          <div className="flex gap-0 border-b border-border mb-6 overflow-x-auto">
             {tabs.map(tab => (
               <button
                 key={tab}
@@ -100,7 +100,7 @@ export default function RestaurantDetailPage() {
           </div>
 
           {/* Time grid */}
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-2">
             {filteredSlots.map(slot => (
               <div
                 key={slot.slotId}

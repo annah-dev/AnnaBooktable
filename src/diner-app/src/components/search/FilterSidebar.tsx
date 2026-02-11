@@ -11,11 +11,13 @@ interface FilterSidebarProps {
   onPriceChange: (price: number | null) => void;
   selectedRating: number | null;
   onRatingChange: (rating: number | null) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function FilterSidebar({ selectedCuisine, onCuisineChange, selectedPrice, onPriceChange, selectedRating, onRatingChange }: FilterSidebarProps) {
-  return (
-    <aside className="w-60 p-7 pr-6 border-r border-border bg-bg-secondary sticky top-[65px] h-[calc(100vh-65px)] overflow-y-auto shrink-0">
+export default function FilterSidebar({ selectedCuisine, onCuisineChange, selectedPrice, onPriceChange, selectedRating, onRatingChange, isOpen, onClose }: FilterSidebarProps) {
+  const content = (
+    <>
       <div className="font-sans text-[11px] font-semibold text-text-tertiary uppercase tracking-[1.5px] mb-4">
         Cuisine
       </div>
@@ -64,6 +66,29 @@ export default function FilterSidebar({ selectedCuisine, onCuisineChange, select
           </div>
         ))}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:block w-60 p-7 pr-6 border-r border-border bg-bg-secondary sticky top-[65px] h-[calc(100vh-65px)] overflow-y-auto shrink-0">
+        {content}
+      </aside>
+
+      {/* Mobile drawer */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+          <aside className="absolute top-0 left-0 bottom-0 w-72 bg-bg-secondary p-6 overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <span className="font-sans text-sm font-semibold text-text-primary">Filters</span>
+              <button onClick={onClose} className="bg-transparent border-none text-text-secondary cursor-pointer text-xl p-1">&#x2715;</button>
+            </div>
+            {content}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

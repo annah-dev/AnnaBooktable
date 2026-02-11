@@ -34,8 +34,8 @@ export default function ReservationsPage() {
   };
 
   return (
-    <div className="max-w-[700px] mx-auto p-8">
-      <h2 className="font-serif text-[32px] text-text-primary mb-2">My Reservations</h2>
+    <div className="max-w-[700px] mx-auto p-4 md:p-8">
+      <h2 className="font-serif text-[26px] md:text-[32px] text-text-primary mb-2">My Reservations</h2>
       <p className="font-sans text-sm text-text-tertiary mb-8">Upcoming and past bookings</p>
 
       {cancelMutation.isError && (
@@ -63,7 +63,7 @@ export default function ReservationsPage() {
           return (
             <div
               key={res.reservationId}
-              className={`flex gap-5 px-6 py-5 rounded-[14px] bg-bg-secondary border border-border mb-3 border-l-[3px] ${borderColor} transition-all duration-200 animate-fade-slide-up ${isPast ? 'opacity-60' : ''}`}
+              className={`flex gap-3 md:gap-5 px-4 md:px-6 py-4 md:py-5 rounded-[14px] bg-bg-secondary border border-border mb-3 border-l-[3px] ${borderColor} transition-all duration-200 animate-fade-slide-up ${isPast ? 'opacity-60' : ''}`}
               style={{ animationDelay: `${i * 0.08}s` }}
             >
               <div className="w-[52px] h-[52px] rounded-xl bg-bg-elevated flex items-center justify-center text-[26px] shrink-0">

@@ -20,16 +20,16 @@ export default function GlassSearchBar() {
   };
 
   const fields = [
-    { label: 'City', value: city, onChange: setCity, type: 'text', width: 'w-[180px]' },
-    { label: 'Date', value: date, onChange: setDate, type: 'date', width: 'w-[160px]' },
-    { label: 'Time', value: time, onChange: setTime, type: 'time', width: 'w-[160px]' },
-    { label: 'Guests', value: guests, onChange: setGuests, type: 'number', width: 'w-[90px]' },
+    { label: 'City', value: city, onChange: setCity, type: 'text', width: 'md:w-[180px]' },
+    { label: 'Date', value: date, onChange: setDate, type: 'date', width: 'md:w-[160px]' },
+    { label: 'Time', value: time, onChange: setTime, type: 'time', width: 'md:w-[160px]' },
+    { label: 'Guests', value: guests, onChange: setGuests, type: 'number', width: 'md:w-[90px]' },
   ];
 
   return (
-    <div className="flex gap-px rounded-2xl overflow-hidden bg-border p-px shadow-accent-glow glass">
+    <div className="flex flex-col md:flex-row gap-2 md:gap-px rounded-2xl overflow-hidden bg-border p-px shadow-accent-glow glass">
       {fields.map(field => (
-        <div key={field.label} className={`bg-bg-secondary px-5 py-3.5 ${field.width}`}>
+        <div key={field.label} className={`bg-bg-secondary px-5 py-3.5 w-full ${field.width}`}>
           <div className="font-sans text-[10px] font-semibold text-text-tertiary uppercase tracking-[1.5px] mb-1.5">
             {field.label}
           </div>
@@ -43,7 +43,7 @@ export default function GlassSearchBar() {
       ))}
       <button
         onClick={handleSearch}
-        className="bg-gradient-to-br from-accent to-accent-warm border-none px-8 py-3.5 cursor-pointer font-sans text-[15px] font-semibold text-bg-primary flex items-center gap-2 transition-all duration-200 whitespace-nowrap hover:brightness-110 active:scale-[0.97]"
+        className="bg-gradient-to-br from-accent to-accent-warm border-none px-8 py-3.5 cursor-pointer font-sans text-[15px] font-semibold text-bg-primary flex items-center justify-center gap-2 transition-all duration-200 whitespace-nowrap hover:brightness-110 active:scale-[0.97] w-full md:w-auto"
       >
         Find tables
         <span className="text-lg">→</span>

@@ -15,8 +15,8 @@ export default function CountdownTimer({ seconds, total, isUrgent }: CountdownTi
   const glowColor = isUrgent ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)';
 
   return (
-    <div className="relative w-[200px] h-[200px]">
-      <svg width="200" height="200" className="-rotate-90">
+    <div className="relative w-[160px] h-[160px] md:w-[200px] md:h-[200px]">
+      <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
         <circle cx="100" cy="100" r={radius} fill="none" stroke="var(--color-bg-elevated)" strokeWidth="4" />
         <circle
           cx="100" cy="100" r={radius} fill="none"

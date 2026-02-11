@@ -147,7 +147,7 @@ export default function BookingPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center px-8 pt-16 pb-8"
+      className="min-h-screen flex flex-col items-center px-4 md:px-8 pt-16 pb-8"
       style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(245,158,11,0.15) 0%, transparent 50%)' }}
     >
       <CountdownTimer seconds={countdown.seconds} total={300} isUrgent={countdown.isUrgent} />
@@ -157,7 +157,7 @@ export default function BookingPage() {
         Layer 1: Redis SETNX hold — 5 minute protection
       </p>
 
-      <div className="bg-bg-secondary rounded-2xl p-8 w-[420px] border border-border">
+      <div className="bg-bg-secondary rounded-2xl p-6 md:p-8 w-full max-w-[420px] border border-border">
         {/* Restaurant info */}
         <div className="flex justify-between mb-5 pb-4 border-b border-border">
           <div>

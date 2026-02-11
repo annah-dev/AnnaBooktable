@@ -32,13 +32,13 @@ export default function RestaurantCard({ restaurant, index, onCardClick, onTimeC
       style={{ animationDelay: `${index * 0.08}s` }}
       onClick={onCardClick}
     >
-      <div className="h-40 bg-gradient-to-br from-bg-elevated to-bg-hover flex items-center justify-center text-[56px] relative">
+      <div className="h-32 md:h-40 bg-gradient-to-br from-bg-elevated to-bg-hover flex items-center justify-center text-[56px] relative">
         {emoji}
         <div className="absolute top-3 right-3 bg-[#0C0A09cc] rounded-lg px-2.5 py-1 backdrop-blur-[10px]">
           <StarRating rating={restaurant.avgRating} />
         </div>
       </div>
-      <div className="p-5">
+      <div className="p-4 md:p-5">
         <div className="flex justify-between items-center mb-1">
           <span className="font-serif text-[19px] font-semibold text-text-primary">{restaurant.name}</span>
           <span className="text-text-secondary text-[13px] tracking-wider">

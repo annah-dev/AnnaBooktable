@@ -31,11 +31,11 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col">
       {/* Hero */}
       <div
-        className="flex-1 flex flex-col items-center justify-center px-8 pt-20 pb-10"
+        className="flex-1 flex flex-col items-center justify-center px-4 md:px-8 pt-20 pb-10"
         style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(245,158,11,0.15) 0%, transparent 60%)' }}
       >
         <h1
-          className="font-serif text-[64px] font-normal text-text-primary mb-3 text-center tracking-tight"
+          className="font-serif text-[36px] md:text-[64px] font-normal text-text-primary mb-3 text-center tracking-tight"
           style={{
             opacity: loaded ? 1 : 0, transform: loaded ? 'translateY(0)' : 'translateY(20px)',
             transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -44,7 +44,7 @@ export default function HomePage() {
           Your table awaits
         </h1>
         <p
-          className="font-sans text-[17px] text-text-tertiary mb-12 text-center"
+          className="font-sans text-[15px] md:text-[17px] text-text-tertiary mb-8 md:mb-12 text-center"
           style={{
             opacity: loaded ? 1 : 0, transform: loaded ? 'translateY(0)' : 'translateY(20px)',
             transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s',
@@ -64,7 +64,7 @@ export default function HomePage() {
 
       {/* Trending */}
       <div
-        className="px-8 pb-16 max-w-[1100px] mx-auto w-full"
+        className="px-4 md:px-8 pb-16 max-w-[1100px] mx-auto w-full"
         style={{ opacity: loaded ? 1 : 0, transition: 'opacity 0.8s ease 0.6s' }}
       >
         <h2 className="font-serif text-[28px] text-text-primary mb-2">Trending tonight</h2>
@@ -78,7 +78,7 @@ export default function HomePage() {
               <div
                 key={r.restaurantId}
                 onClick={() => navigate(`/restaurant/${r.restaurantId}`)}
-                className="min-w-[240px] rounded-[14px] overflow-hidden cursor-pointer bg-bg-secondary border border-border transition-all duration-300 shrink-0 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(0,0,0,0.4)]"
+                className="min-w-[200px] md:min-w-[240px] rounded-[14px] overflow-hidden cursor-pointer bg-bg-secondary border border-border transition-all duration-300 shrink-0 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(0,0,0,0.4)]"
                 style={{
                   opacity: loaded ? 1 : 0, transform: loaded ? 'translateX(0)' : 'translateX(30px)',
                   transition: `all 0.5s ease ${0.7 + i * 0.1}s`,

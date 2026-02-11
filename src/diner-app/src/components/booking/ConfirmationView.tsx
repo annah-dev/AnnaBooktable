@@ -48,12 +48,12 @@ export default function ConfirmationView({ confirmationCode, restaurantName, dat
         We've sent a confirmation to your email
       </p>
 
-      <div className={`bg-bg-secondary rounded-2xl p-8 w-[380px] border border-border text-center transition-all duration-600 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
+      <div className={`bg-bg-secondary rounded-2xl p-6 md:p-8 w-full max-w-[380px] border border-border text-center transition-all duration-600 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
            style={{ transitionDelay: '0.8s', transitionTimingFunction: 'ease' }}>
         <div className="font-sans text-[11px] font-semibold text-text-tertiary uppercase tracking-[2px] mb-3">
           Confirmation Code
         </div>
-        <div className="font-mono text-[40px] font-medium text-accent tracking-[8px] mb-6">
+        <div className="font-mono text-[28px] md:text-[40px] font-medium text-accent tracking-[4px] md:tracking-[8px] mb-6">
           {confirmationCode}
         </div>
         <div className="w-full h-px bg-border mb-5" />
