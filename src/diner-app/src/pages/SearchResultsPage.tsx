@@ -14,6 +14,8 @@ export default function SearchResultsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [selectedCuisine, setSelectedCuisine] = useState('All');
+  const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   const city = searchParams.get('city') ?? 'Bellevue';
   const date = searchParams.get('date') ?? getTomorrow();
@@ -28,7 +30,12 @@ export default function SearchResultsPage() {
     cuisine: selectedCuisine === 'All' ? undefined : selectedCuisine,
   });
 
-  const results = data?.results ?? [];
+  const allResults = data?.results ?? [];
+  const results = allResults.filter(r => {
+    if (selectedPrice !== null && r.priceLevel !== selectedPrice) return false;
+    if (selectedRating !== null && r.avgRating < selectedRating) return false;
+    return true;
+  });
 
   const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
@@ -39,7 +46,11 @@ export default function SearchResultsPage() {
 
   return (
     <div className="flex min-h-screen">
-      <FilterSidebar selectedCuisine={selectedCuisine} onCuisineChange={setSelectedCuisine} />
+      <FilterSidebar
+        selectedCuisine={selectedCuisine} onCuisineChange={setSelectedCuisine}
+        selectedPrice={selectedPrice} onPriceChange={setSelectedPrice}
+        selectedRating={selectedRating} onRatingChange={setSelectedRating}
+      />
 
       <main className="flex-1 p-7 px-8">
         <div className="flex justify-between items-baseline mb-6">

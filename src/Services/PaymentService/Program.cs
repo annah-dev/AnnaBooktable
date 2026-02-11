@@ -14,11 +14,20 @@ try
     builder.Host.UseSerilog((context, config) =>
         config.ReadFrom.Configuration(context.Configuration));
 
-    // MassTransit - use RabbitMQ if configured, otherwise in-memory
+    // MassTransit - Azure Service Bus → RabbitMQ → InMemory
+    var sbConn = builder.Configuration.GetConnectionString("AzureServiceBus");
     var rabbitMqConn = builder.Configuration.GetConnectionString("RabbitMQ");
     builder.Services.AddMassTransit(x =>
     {
-        if (!string.IsNullOrEmpty(rabbitMqConn))
+        if (!string.IsNullOrEmpty(sbConn))
+        {
+            x.UsingAzureServiceBus((context, cfg) =>
+            {
+                cfg.Host(sbConn);
+                cfg.ConfigureEndpoints(context);
+            });
+        }
+        else if (!string.IsNullOrEmpty(rabbitMqConn))
         {
             x.UsingRabbitMq((context, cfg) =>
             {

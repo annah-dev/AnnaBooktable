@@ -7,9 +7,13 @@ const CUISINES = [
 interface FilterSidebarProps {
   selectedCuisine: string;
   onCuisineChange: (cuisine: string) => void;
+  selectedPrice: number | null;
+  onPriceChange: (price: number | null) => void;
+  selectedRating: number | null;
+  onRatingChange: (rating: number | null) => void;
 }
 
-export default function FilterSidebar({ selectedCuisine, onCuisineChange }: FilterSidebarProps) {
+export default function FilterSidebar({ selectedCuisine, onCuisineChange, selectedPrice, onPriceChange, selectedRating, onRatingChange }: FilterSidebarProps) {
   return (
     <aside className="w-60 p-7 pr-6 border-r border-border bg-bg-secondary sticky top-[65px] h-[calc(100vh-65px)] overflow-y-auto shrink-0">
       <div className="font-sans text-[11px] font-semibold text-text-tertiary uppercase tracking-[1.5px] mb-4">
@@ -33,7 +37,9 @@ export default function FilterSidebar({ selectedCuisine, onCuisineChange }: Filt
         {[1, 2, 3, 4].map(p => (
           <button
             key={p}
-            className="font-sans text-[13px] px-3 py-1.5 rounded-lg border border-border bg-transparent text-text-secondary hover:border-accent-glow hover:text-accent transition-all duration-200 cursor-pointer"
+            onClick={() => onPriceChange(selectedPrice === p ? null : p)}
+            className={`font-sans text-[13px] px-3 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer
+              ${selectedPrice === p ? 'border-accent-glow text-accent accent-glow bg-accent/10' : 'border-border bg-transparent text-text-secondary hover:border-accent-glow hover:text-accent'}`}
           >
             {'$'.repeat(p)}
           </button>
@@ -43,11 +49,20 @@ export default function FilterSidebar({ selectedCuisine, onCuisineChange }: Filt
       <div className="font-sans text-[11px] font-semibold text-text-tertiary uppercase tracking-[1.5px] mt-8 mb-4">
         Rating
       </div>
-      <div className="flex items-center gap-1.5">
-        {[1, 2, 3, 4, 5].map(i => (
-          <span key={i} className={`text-lg cursor-pointer ${i <= 4 ? 'text-accent' : 'text-bg-hover'}`}>★</span>
+      <div className="flex flex-col gap-1">
+        {[4, 3, 2, 1].map(minRating => (
+          <div
+            key={minRating}
+            onClick={() => onRatingChange(selectedRating === minRating ? null : minRating)}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg cursor-pointer transition-all duration-200
+              ${selectedRating === minRating ? 'bg-accent/10' : 'hover:bg-bg-hover'}`}
+          >
+            {[1, 2, 3, 4, 5].map(i => (
+              <span key={i} className={`text-base ${i <= minRating ? 'text-accent' : 'text-bg-hover'}`}>★</span>
+            ))}
+            <span className={`font-sans text-xs ml-1 ${selectedRating === minRating ? 'text-accent' : 'text-text-secondary'}`}>& up</span>
+          </div>
         ))}
-        <span className="font-sans text-xs text-text-secondary ml-1">& up</span>
       </div>
     </aside>
   );

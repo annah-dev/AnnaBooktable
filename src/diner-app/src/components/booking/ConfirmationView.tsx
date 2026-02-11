@@ -70,8 +70,11 @@ export default function ConfirmationView({ confirmationCode, restaurantName, dat
           </div>
         ))}
         <div className="flex gap-2.5 mt-6">
-          <button className="flex-1 py-3 rounded-[10px] border border-border bg-transparent text-text-secondary cursor-pointer font-sans text-[13px] font-medium hover:border-accent-glow transition-colors">
-            Add to Calendar
+          <button
+            onClick={() => navigate('/')}
+            className="flex-1 py-3 rounded-[10px] border border-border bg-transparent text-text-secondary cursor-pointer font-sans text-[13px] font-medium hover:border-accent-glow transition-colors"
+          >
+            Back to Search
           </button>
           <button
             onClick={() => navigate('/reservations')}

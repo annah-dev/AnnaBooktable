@@ -12,7 +12,15 @@
     @keyframes holdPulse{0%,100%{box-shadow:0 0 3px #b4530944}50%{box-shadow:0 0 12px #b4530999}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
     ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#e8ecf1}::-webkit-scrollbar-thumb{background:#a0a8b4;border-radius:3px}
-    body{font-family:'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace;background:#dfe3ea}
+    body{font-family:'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace;background:#dfe3ea;zoom:1.5}
+    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100}
+    .modal-box{background:#edf0f4;border-radius:10px;border:2px solid #b0b8c4;padding:18px;max-width:520px;width:90%;max-height:70vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,0.2)}
+    .toggle-switch{position:relative;width:36px;height:20px;display:inline-block;cursor:pointer}
+    .toggle-switch input{opacity:0;width:0;height:0}
+    .toggle-slider{position:absolute;inset:0;background:#b0b8c4;border-radius:10px;transition:0.2s}
+    .toggle-slider:before{content:"";position:absolute;height:16px;width:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:0.2s}
+    .toggle-switch input:checked+.toggle-slider{background:#047857}
+    .toggle-switch input:checked+.toggle-slider:before{transform:translateX(16px)}
   </style>
 </head>
 <body>
@@ -23,18 +31,21 @@ const{useState,useEffect,useRef,useCallback}=React;
 const P={page:"#dfe3ea",card:"#edf0f4",head:"#2d3748",border:"#b0b8c4",text:"#1a202c",sub:"#4a5568",muted:"#718096",amber:"#b45309",amberBg:"#fef3c7",amberBd:"#f59e0b",green:"#047857",greenBg:"#d1fae5",greenBd:"#34d399",red:"#b91c1c",redBg:"#fee2e2",redBd:"#f87171",purple:"#6d28d9",purpleBg:"#ede9fe",purpleBd:"#a78bfa",blue:"#1d4ed8",teal:"#0e7490",orange:"#c2410c",slotEmpty:"#ccd2da"};
 const uid=()=>Math.random().toString(36).slice(2,10);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
+const genUUID=()=>'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16)});
 const TIMES=["6:00","6:30","7:00","7:30","8:00","8:30","9:00","9:30"];
 const NAMES=["Alice","Bob","Carol","Dave","Eve","Frank","Grace","Hank","Iris","Jack","Kate","Leo","Mia","Nick","Olivia","Pete"];
+const AGENT_USERS={"Alice":"e0000000-0000-0000-0000-000000000001","Bob":"a0000000-0000-0000-0000-000000000002","Carol":"a0000000-0000-0000-0000-000000000003","Dave":"a0000000-0000-0000-0000-000000000004","Eve":"a0000000-0000-0000-0000-000000000005","Frank":"a0000000-0000-0000-0000-000000000006","Grace":"a0000000-0000-0000-0000-000000000007","Hank":"a0000000-0000-0000-0000-000000000008","Iris":"a0000000-0000-0000-0000-000000000009","Jack":"a0000000-0000-0000-0000-000000000010","Kate":"a0000000-0000-0000-0000-000000000011","Leo":"a0000000-0000-0000-0000-000000000012","Mia":"a0000000-0000-0000-0000-000000000013","Nick":"a0000000-0000-0000-0000-000000000014","Olivia":"a0000000-0000-0000-0000-000000000015","Pete":"a0000000-0000-0000-0000-000000000016"};
 const AC=["#b45309","#b91c1c","#1d4ed8","#047857","#6d28d9","#be185d","#0d9488","#c2410c","#4338ca","#4d7c0f","#9f1239","#0e7490"];
 const SIM_R=[
-  {id:"r1",name:"The Sushi Bar",cuisine:"Japanese",tables:8,emoji:"🍣"},
-  {id:"r2",name:"Bella Notte",cuisine:"Italian",tables:6,emoji:"🍝"},
-  {id:"r3",name:"Le Petit Bistro",cuisine:"French",tables:5,emoji:"🥐"},
-  {id:"r4",name:"Ember & Oak",cuisine:"Steakhouse",tables:7,emoji:"🥩"},
-  {id:"r5",name:"Sakura Garden",cuisine:"Japanese",tables:6,emoji:"🌸"},
-  {id:"r6",name:"Taco Royale",cuisine:"Mexican",tables:5,emoji:"🌮"},
+  {id:"r1",name:"The Sushi Bar",cuisine:"Japanese",tables:8,emoji:"\u{1F363}"},
+  {id:"r2",name:"Bella Notte",cuisine:"Italian",tables:6,emoji:"\u{1F35D}"},
+  {id:"r3",name:"Le Petit Bistro",cuisine:"French",tables:5,emoji:"\u{1F950}"},
+  {id:"r4",name:"Ember & Oak",cuisine:"Steakhouse",tables:7,emoji:"\u{1F969}"},
+  {id:"r5",name:"Sakura Garden",cuisine:"Japanese",tables:6,emoji:"\u{1F338}"},
+  {id:"r6",name:"Taco Royale",cuisine:"Mexican",tables:5,emoji:"\u{1F32E}"},
 ];
-function cuisineEmoji(c){return{Japanese:"🍣",Italian:"🍝",French:"🥐",Steakhouse:"🥩",Mexican:"🌮",Chinese:"🥟",Thai:"🍜",Indian:"🍛",American:"🍔",Korean:"🥘",Mediterranean:"🫒",Seafood:"🦞",Vietnamese:"🍲"}[c]||"🍽️"}
+const CUISINE_EMOJIS={"Japanese":"\u{1F363}","Italian":"\u{1F35D}","French":"\u{1F950}","Steakhouse":"\u{1F969}","Mexican":"\u{1F32E}","Chinese":"\u{1F95F}","Thai":"\u{1F35C}","Indian":"\u{1F35B}","American":"\u{1F354}","Korean":"\u{1F958}","Mediterranean":"\u{1FAD2}","Seafood":"\u{1F99E}","Vietnamese":"\u{1F372}","BBQ":"\u{1F525}","Pizza":"\u{1F355}","Taiwanese":"\u{1F9CB}"};
+function cuisineEmoji(c){return CUISINE_EMOJIS[c]||"\u{1F37D}\uFE0F"}
 function formatTime(ts){if(!ts)return"";const s=""+ts;if(s.includes("T")){try{const d=new Date(s);return d.getHours()+":"+("0"+d.getMinutes()).slice(-2)}catch{}}if(s.includes(":"))return s.replace(/:\d{2}$/,"");return s}
 
 function makeSlots(rs){
@@ -44,9 +55,26 @@ function makeSlots(rs){
   });return s;
 }
 
-function eColor(t){return{search:P.blue,hold:P.amber,book:P.green,success:P.green,conflict:P.red,idem:P.purple,expire:P.muted,release:P.teal,warn:P.orange,system:P.sub}[t]||P.sub}
+function eColor(t){return{search:P.blue,hold:P.amber,book:P.green,success:P.green,conflict:P.red,idem:P.purple,expire:P.muted,release:P.teal,warn:P.orange,system:P.sub,agent:P.blue}[t]||P.sub}
 const B0={padding:"5px 10px",border:"none",borderRadius:4,background:"#4a5568",color:"#e2e8f0",fontSize:11,cursor:"pointer",fontFamily:"inherit"};
 const B=x=>({...B0,...x});
+
+function Modal({title,onClose,children}){
+  return React.createElement("div",{className:"modal-overlay",onClick:onClose},
+    React.createElement("div",{className:"modal-box",onClick:e=>e.stopPropagation()},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+        React.createElement("span",{style:{fontSize:13,fontWeight:700,color:P.text}},title),
+        React.createElement("button",{onClick:onClose,style:{...B0,padding:"2px 8px",fontSize:13}},"\u00D7")),
+      children));
+}
+
+function Toggle({checked,onChange,label}){
+  return React.createElement("label",{style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:11,color:P.text}},
+    React.createElement("label",{className:"toggle-switch"},
+      React.createElement("input",{type:"checkbox",checked,onChange:e=>onChange(e.target.checked)}),
+      React.createElement("span",{className:"toggle-slider"})),
+    label);
+}
 
 function App(){
   const[slots,setSlots]=useState(()=>makeSlots(SIM_R));
@@ -55,15 +83,30 @@ function App(){
   const[met,setMet]=useState({searches:0,holds:0,books:0,holdFail:0,bookFail:0,idem:0,redis:0,db:0});
   const[speed,setSpeed]=useState(2);
   const[on,setOn]=useState(false);
-  const[selR,setSelR]=useState(null);
+  const[slotFilter,setSlotFilter]=useState(null); // null|"BOOKED"|"HELD"|expanded
   const[chaos,setChaos]=useState(null);
-  const[mode,setMode]=useState(null); // null=detecting, "simulate", "live"
+  const[mode,setMode]=useState(null);
   const[wsOk,setWsOk]=useState(false);
   const[infra,setInfra]=useState({rabbitmq:false,redis:false,postgres:false});
   const[restaurants,setRestaurants]=useState(SIM_R);
   const[liveDate,setLiveDate]=useState(null);
   const[redisStats,setRedisStats]=useState(null);
-  const[envInfo,setEnvInfo]=useState({azure:false,messaging:"rabbitmq"});
+  const[envInfo,setEnvInfo]=useState({azure:false,messaging:"rabbitmq",gatewayUrl:"http://localhost:5000"});
+  const[cuisineFilter,setCuisineFilter]=useState("All");
+  const[holdsList,setHoldsList]=useState([]);
+  const[bookingsList,setBookingsList]=useState([]);
+  const[adminSettings,setAdminSettings]=useState({require_cc_hold_peak:false,require_cc_hold_holidays:false,reservation_duration_minutes:90});
+  const[showAdmin,setShowAdmin]=useState(false);
+  // External agent state
+  const[extAgents,setExtAgents]=useState([]);
+  // Date picker state
+  const[viewDate,setViewDate]=useState(null); // current viewing date (YYYY-MM-DD)
+  const[availableDates,setAvailableDates]=useState([]);
+  // Dynamic times from live data
+  const[liveTimes,setLiveTimes]=useState([]);
+  // Multi-day expansion state
+  const[expanded,setExpanded]=useState(null); // null | "BOOKED" | "HELD"
+  const[expandedData,setExpandedData]=useState(null); // {slotsByDate, dates, restaurants, status}
 
   const sRef=useRef(slots);const aRef=useRef(agents);const lRef=useRef(null);const wsRef=useRef(null);
   useEffect(()=>{sRef.current=slots},[slots]);
@@ -71,64 +114,71 @@ function App(){
   useEffect(()=>{if(lRef.current)lRef.current.scrollTop=lRef.current.scrollHeight},[log]);
 
   const addLog=useCallback((type,msg,who,layer)=>{
-    setLog(p=>{const n=[...p,{id:uid(),type,msg,who,layer}];return n.length>300?n.slice(-300):n});
+    setLog(p=>{const n=[...p,{id:uid(),type,msg,who,layer,ts:Date.now()}];return n.length>300?n.slice(-300):n});
   },[]);
   const inc=useCallback((k,v=1)=>setMet(m=>({...m,[k]:m[k]+v})),[]);
+  const sendCmd=useCallback((cmd)=>{if(wsRef.current&&wsRef.current.readyState===1)wsRef.current.send(JSON.stringify(cmd))},[]);
 
-  // ── WebSocket (always connects, server tells us mode) ──
+  // ── WebSocket ──
   useEffect(()=>{
     let ws,rt;
     const connect=()=>{
       const proto=window.location.protocol==="https:"?"wss:":"ws:";
       const wsUrl=proto+"//"+window.location.host;
       ws=new WebSocket(wsUrl);wsRef.current=ws;
-      ws.onopen=()=>{setWsOk(true);addLog("system","🔌 Connected to bridge","SYS")};
+      ws.onopen=()=>{setWsOk(true);addLog("system","\u{1F50C} Connected to bridge","SYS")};
       ws.onclose=()=>{setWsOk(false);rt=setTimeout(connect,2000)};
       ws.onerror=()=>{
         setWsOk(false);
-        // If can't connect, default to simulate mode
-        if(mode===null){setMode("simulate");setOn(true);addLog("system","🎮 No bridge found → Simulate mode","SYS")}
+        if(mode===null){setMode("simulate");setOn(true);addLog("system","\u{1F3AE} No bridge found \u2192 Simulate mode","SYS")}
       };
       ws.onmessage=(e)=>{try{
         const m=JSON.parse(e.data);
         if(m.type==="mode"){
-          const newMode=m.data;
-          setMode(newMode);
-          if(newMode==="simulate"){setOn(true);addLog("system","🎮 Simulate mode (auto-started)","SYS")}
-          else{setOn(false);addLog("system","🔌 Live mode — reading from Booktable infra","SYS")}
+          const newMode=m.data;setMode(newMode);
+          if(newMode==="simulate"){setOn(true);addLog("system","\u{1F3AE} Simulate mode (auto-started)","SYS")}
+          else{setOn(false);addLog("system","\u{1F50C} Live mode \u2014 reading from Booktable infra","SYS")}
         }
         else if(m.type==="env")setEnvInfo(m.data||{azure:false,messaging:"rabbitmq"});
         else if(m.type==="connection_status")setInfra(m.data);
+        else if(m.type==="admin_settings")setAdminSettings(m.data);
         else if(m.type==="slot_state"){
           const d=m.data;if(!d.restaurants||!d.slots)return;
           if(d.slotDate)setLiveDate(d.slotDate);
+          if(d.availableDates){setAvailableDates(d.availableDates.map(dt=>String(dt).slice(0,10)))}
+          // Set viewDate on first load
+          if(d.slotDate&&!viewDate)setViewDate(String(d.slotDate).slice(0,10));
           const lr=d.restaurants.map(r=>({id:r.restaurant_id,name:r.name,cuisine:r.cuisine,tables:parseInt(r.table_count)||0,emoji:cuisineEmoji(r.cuisine),tableIds:[]}));
-          const ns={};const tbr={};
+          const ns={};const tbr={};const timeSet=new Set();
           d.slots.forEach(s=>{
             const tKey=s.restaurant_id+"-"+s.table_number;const ts=formatTime(s.start_time);
+            if(ts)timeSet.add(ts);
             if(!tbr[s.restaurant_id])tbr[s.restaurant_id]=new Set();
             tbr[s.restaurant_id].add(tKey);
-            ns[tKey+":"+ts]={status:s.status||"AVAILABLE",heldBy:s.held_by,bookedBy:s.booked_by_name||s.booked_by,holdExp:s.held_until?new Date(s.held_until).getTime():null};
+            ns[tKey+":"+ts]={status:s.status||"AVAILABLE",heldBy:s.held_by,bookedBy:s.booked_by_name||s.booked_by,holdExp:s.held_until?new Date(s.held_until).getTime():null,slotId:s.slot_id};
           });
+          // Extract dynamic times sorted chronologically
+          const sortedTimes=[...timeSet].sort((a,b)=>{
+            const [ah,am]=a.split(":").map(Number);const [bh,bm]=b.split(":").map(Number);
+            return ah*60+am-bh*60-bm;
+          });
+          if(sortedTimes.length>0)setLiveTimes(sortedTimes);
           lr.forEach(r=>{r.tableIds=Array.from(tbr[r.id]||[]).sort();r.tables=r.tableIds.length});
           if(lr.length>0)setRestaurants(lr);
           if(Object.keys(ns).length>0)setSlots(ns);
         }
         else if(m.type==="redis_state"){
           if(m.data.stats)setRedisStats(m.data.stats);
-          if(m.data.holds){
-            const ct=m.data.holds.length;
-            setMet(prev=>({...prev,holds:Math.max(prev.holds,ct)}));
-          }
+          if(m.data.holds){setHoldsList(m.data.holds);setMet(prev=>({...prev,holds:Math.max(prev.holds,m.data.holds.length)}));}
         }
         else if(m.type==="metrics"){
           const d=m.data;
           if(d.bookings)setMet(prev=>({...prev,books:parseInt(d.bookings.total_bookings)||prev.books}));
-          if(d.utilization){
-            const u=d.utilization;
-            setMet(prev=>({...prev,db:parseInt(u.total_slots)||prev.db}));
-          }
+          if(d.utilization){const u=d.utilization;setMet(prev=>({...prev,db:parseInt(u.total_slots)||prev.db}))}
         }
+        else if(m.type==="bookings_list")setBookingsList(m.data||[]);
+        else if(m.type==="expanded_slot_state"){setExpandedData(m.data||null)}
+        else if(m.type==="agent_state")setExtAgents(m.data||[]);
         else if(m.type==="event"){
           const d=m.data||m;const rk=d.routingKey||d.type||"";
           const who=d.data?.userName||d.data?.requestingUserName||"";
@@ -142,67 +192,186 @@ function App(){
         }
       }catch{}}
     };
-    // Small delay to let server boot
     const t=setTimeout(connect,500);
     return()=>{clearTimeout(t);clearTimeout(rt);if(ws)ws.close()};
   },[addLog,inc]);
 
-  // ── Simulate engine ──
+  // ── Agent engine (simulate + live) ──
   useEffect(()=>{
-    if(mode!=="simulate"||!on)return;
+    if(!on)return;
+    const isLive=mode==="live";
     const iv=setInterval(()=>{
-      if(aRef.current.length<12&&Math.random()<0.3*speed){
-        const name=pick(NAMES),color=AC[aRef.current.length%AC.length];
-        setAgents(p=>[...p,{id:uid(),name,color,st:"SEARCH",tgt:null,hk:null,t0:Date.now()}]);
+      const pending=aRef.current.filter(a=>a.pending).length;
+      if(aRef.current.length<(isLive?8:12)&&Math.random()<0.3*speed&&pending<3){
+        const usedNames=new Set(aRef.current.map(a=>a.name));
+        const availNames=NAMES.filter(n=>!usedNames.has(n));
+        const name=availNames.length>0?pick(availNames):pick(NAMES);
+        const color=AC[aRef.current.length%AC.length];
+        setAgents(p=>[...p,{id:uid(),name,color,st:"SEARCH",tgt:null,hk:null,t0:Date.now(),userId:isLive?(AGENT_USERS[name]||genUUID()):null,slotId:null,holdToken:null,pending:false}]);
         addLog("search",name+" searching...",name);inc("searches");
       }
       setAgents(pa=>{const now=Date.now();return pa.map(a=>{
+        if(a.pending)return a;
         const el=now-a.t0,sf=1500/speed;
         if(a.st==="SEARCH"&&el>sf){
           const r=pick(restaurants);if(!r.tableIds||!r.tableIds.length)return{...a,t0:now};
-          const t=pick(TIMES),ti=pick(r.tableIds),k=ti+":"+t,sl=sRef.current[k];
-          if(sl&&sl.status==="AVAILABLE"){
-            if(chaos==="redis_down"){addLog("warn",a.name+" → Redis DOWN, direct to DB",a.name,"L1");inc("redis");return{...a,st:"DIRECT",tgt:{r,t,ti,k},t0:now}}
-            inc("redis");setSlots(p=>({...p,[k]:{...p[k],status:"HELD",heldBy:a.name,holdExp:now+5000/speed}}));
-            inc("holds");addLog("hold","🛡️ L1 SETNX hold:"+k+" "+a.name+" EX 300 → OK",a.name,"L1");
-            return{...a,st:"PAY",tgt:{r,t,ti,k},hk:k,t0:now};
-          }else if(sl){inc("holdFail");addLog("conflict",a.name+" → hold:"+k+" FAILED (already held)",a.name,"L1")}
-          return{...a,t0:now};
+          if(isLive){
+            // Live: find a real available slot with slotId
+            const avail=[];
+            const at=liveTimes.length>0?liveTimes:TIMES;
+            (r.tableIds||[]).forEach(ti=>{at.forEach(ts=>{
+              const sl=sRef.current[ti+":"+ts];
+              if(sl&&sl.status==="AVAILABLE"&&sl.slotId)avail.push({ti,ts,slotId:sl.slotId,r});
+            })});
+            if(avail.length===0)return{...a,t0:now};
+            const chosen=pick(avail);
+            const agentId=a.id,agentName=a.name;
+            fetch("/api/inventory/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slotId:chosen.slotId,userId:a.userId})})
+              .then(res=>res.json())
+              .then(data=>{
+                if(data.success){
+                  inc("holds");inc("redis");
+                  addLog("hold","\u{1F6E1}\uFE0F L1 "+agentName+" \u2192 "+chosen.r.name+" T"+chosen.ti.split("-T")[1]+"@"+chosen.ts+" HOLD OK",agentName,"L1");
+                  setAgents(p=>p.map(x=>x.id===agentId?{...x,st:"PAY",holdToken:data.data?.holdToken||null,pending:false,t0:Date.now()}:x));
+                }else{
+                  inc("holdFail");inc("redis");
+                  addLog("conflict",agentName+" hold FAILED: "+(data.message||"slot taken"),agentName,"L1");
+                  setAgents(p=>p.map(x=>x.id===agentId?{...x,st:"FAIL",pending:false,t0:Date.now()}:x));
+                }
+              }).catch(()=>{
+                inc("holdFail");addLog("warn",agentName+" hold ERROR (gateway down?)",agentName,"L1");
+                setAgents(p=>p.map(x=>x.id===agentId?{...x,st:"FAIL",pending:false,t0:Date.now()}:x));
+              });
+            return{...a,st:"HOLDING",tgt:{r:chosen.r,t:chosen.ts,ti:chosen.ti,k:chosen.ti+":"+chosen.ts},slotId:chosen.slotId,pending:true,t0:now};
+          }else{
+            // Simulate: existing local-state logic
+            const t=pick(TIMES),ti=pick(r.tableIds),k=ti+":"+t,sl=sRef.current[k];
+            if(sl&&sl.status==="AVAILABLE"){
+              if(chaos==="redis_down"){addLog("warn",a.name+" \u2192 Redis DOWN, direct to DB",a.name,"L1");inc("redis");return{...a,st:"DIRECT",tgt:{r,t,ti,k},t0:now}}
+              inc("redis");setSlots(p=>({...p,[k]:{...p[k],status:"HELD",heldBy:a.name,holdExp:now+5000/speed}}));
+              inc("holds");addLog("hold","\u{1F6E1}\uFE0F L1 SETNX hold:"+k+" "+a.name+" EX 300 \u2192 OK",a.name,"L1");
+              return{...a,st:"PAY",tgt:{r,t,ti,k},hk:k,t0:now};
+            }else if(sl){inc("holdFail");addLog("conflict",a.name+" \u2192 hold:"+k+" FAILED (already held)",a.name,"L1")}
+            return{...a,t0:now};
+          }
         }
         if(a.st==="PAY"&&el>sf*1.5){
-          inc("redis");inc("db");const cur=sRef.current[a.hk];
-          if(cur&&cur.status==="HELD"&&cur.heldBy===a.name){
-            setSlots(p=>({...p,[a.hk]:{...p[a.hk],status:"BOOKED",bookedBy:a.name,heldBy:null}}));
-            inc("books");addLog("book","🛡️ L2 UNIQUE(restaurant,table,time) ✓ COMMIT",a.name,"L2");
-            addLog("success","✅ "+a.name+" → "+a.tgt.r.name+" T"+a.tgt.ti.split("-T")[1]+"@"+a.tgt.t+" CONFIRMED",a.name);
-            return{...a,st:"DONE",t0:now};
+          if(isLive){
+            // Live: real API book
+            const agentId=a.id,agentName=a.name,partySize=2+Math.floor(Math.random()*3);
+            fetch("/api/reservations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slotId:a.slotId,userId:a.userId,partySize,holdToken:a.holdToken,idempotencyKey:a.id})})
+              .then(res=>res.json())
+              .then(data=>{
+                if(data.success){
+                  inc("books");inc("db");
+                  addLog("success","\u2705 "+agentName+" \u2192 "+a.tgt.r.name+" CONFIRMED ("+data.data?.confirmationCode+")",agentName,"L2");
+                  setAgents(p=>p.map(x=>x.id===agentId?{...x,st:"DONE",pending:false,t0:Date.now()}:x));
+                }else{
+                  inc("bookFail");inc("db");
+                  addLog("conflict","\u{1F6E1}\uFE0F L2 "+agentName+" BOOK FAILED: "+(data.message||"conflict"),agentName,"L2");
+                  setAgents(p=>p.map(x=>x.id===agentId?{...x,st:"FAIL",pending:false,t0:Date.now()}:x));
+                }
+              }).catch(()=>{
+                inc("bookFail");addLog("warn",agentName+" book ERROR (gateway down?)",agentName,"L2");
+                setAgents(p=>p.map(x=>x.id===agentId?{...x,st:"FAIL",pending:false,t0:Date.now()}:x));
+              });
+            return{...a,st:"BOOKING",pending:true,t0:now};
+          }else{
+            // Simulate: existing local-state logic
+            inc("redis");inc("db");const cur=sRef.current[a.hk];
+            if(cur&&cur.status==="HELD"&&cur.heldBy===a.name){
+              setSlots(p=>({...p,[a.hk]:{...p[a.hk],status:"BOOKED",bookedBy:a.name,heldBy:null}}));
+              inc("books");addLog("book","\u{1F6E1}\uFE0F L2 UNIQUE(restaurant,table,time) \u2713 COMMIT",a.name,"L2");
+              addLog("success","\u2705 "+a.name+" \u2192 "+a.tgt.r.name+" T"+a.tgt.ti.split("-T")[1]+"@"+a.tgt.t+" CONFIRMED",a.name);
+              return{...a,st:"DONE",t0:now};
+            }
+            inc("bookFail");addLog("conflict","\u{1F6E1}\uFE0F L2 UNIQUE CONSTRAINT VIOLATION \u2192 409 Conflict",a.name,"L2");return{...a,st:"FAIL",t0:now};
           }
-          inc("bookFail");addLog("conflict","🛡️ L2 UNIQUE CONSTRAINT VIOLATION → 409 Conflict",a.name,"L2");return{...a,st:"FAIL",t0:now};
         }
-        if(a.st==="DIRECT"&&el>sf*2){
+        if(!isLive&&a.st==="DIRECT"&&el>sf*2){
           inc("db");
           if(sRef.current[a.tgt.k]&&sRef.current[a.tgt.k].status==="AVAILABLE"){
             setSlots(p=>({...p,[a.tgt.k]:{...p[a.tgt.k],status:"BOOKED",bookedBy:a.name}}));
-            inc("books");addLog("book","🛡️ L2 Direct booking → UNIQUE ✓ (no hold, DB protects)",a.name,"L2");return{...a,st:"DONE",t0:now};
+            inc("books");addLog("book","\u{1F6E1}\uFE0F L2 Direct booking \u2192 UNIQUE \u2713 (no hold, DB protects)",a.name,"L2");return{...a,st:"DONE",t0:now};
           }
-          inc("bookFail");addLog("conflict","🛡️ L2 UNIQUE VIOLATION 409 (race lost)",a.name,"L2");return{...a,st:"FAIL",t0:now};
+          inc("bookFail");addLog("conflict","\u{1F6E1}\uFE0F L2 UNIQUE VIOLATION 409 (race lost)",a.name,"L2");return{...a,st:"FAIL",t0:now};
         }
         if((a.st==="DONE"||a.st==="FAIL")&&el>sf*2)return null;
         return a;
       }).filter(Boolean)});
-      setSlots(p=>{const now=Date.now(),n={...p};let c=false;Object.keys(n).forEach(k=>{if(n[k].status==="HELD"&&n[k].holdExp&&now>n[k].holdExp){n[k]={...n[k],status:"AVAILABLE",heldBy:null,holdExp:null};c=true}});return c?n:p});
-      if(Math.random()<0.05*speed){const bk=Object.keys(sRef.current).filter(k=>sRef.current[k].status==="BOOKED");if(bk.length){const k=pick(bk);setSlots(p=>({...p,[k]:{...p[k],status:"AVAILABLE",bookedBy:null}}));addLog("release","🔓 Cancelled "+k,"")}}
+      // Simulate-only: hold expiry + random cancellations
+      if(!isLive){
+        setSlots(p=>{const now=Date.now(),n={...p};let c=false;Object.keys(n).forEach(k=>{if(n[k].status==="HELD"&&n[k].holdExp&&now>n[k].holdExp){n[k]={...n[k],status:"AVAILABLE",heldBy:null,holdExp:null};c=true}});return c?n:p});
+        if(Math.random()<0.05*speed){const bk=Object.keys(sRef.current).filter(k=>sRef.current[k].status==="BOOKED");if(bk.length){const k=pick(bk);setSlots(p=>({...p,[k]:{...p[k],status:"AVAILABLE",bookedBy:null}}));addLog("release","\u{1F513} Cancelled "+k,"")}}
+      }
     },300/speed);
     return()=>clearInterval(iv);
-  },[mode,on,speed,chaos,restaurants,addLog,inc]);
+  },[mode,on,speed,chaos,restaurants,addLog,inc,liveTimes]);
 
   // ── Computed ──
+  const activeTimes=mode==="live"&&liveTimes.length>0?liveTimes:TIMES;
   const sc={AVAILABLE:0,HELD:0,BOOKED:0};Object.values(slots).forEach(s=>{sc[s.status]=(sc[s.status]||0)+1});
   const tot=Object.keys(slots).length||1;
   const util=((sc.BOOKED/tot)*100).toFixed(1);
   const cr=met.books>0?((met.bookFail/(met.books+met.bookFail))*100).toFixed(1):"0.0";
-  const vr=selR||restaurants[0];
-  const reset=()=>{if(mode==="simulate"){setSlots(makeSlots(SIM_R));setRestaurants(SIM_R)}setAgents([]);setLog([]);setMet({searches:0,holds:0,books:0,holdFail:0,bookFail:0,idem:0,redis:0,db:0});setChaos(null)};
+
+  // Cuisine filter
+  const allCuisines=[...new Set(restaurants.map(r=>r.cuisine).filter(Boolean))].sort();
+  const filteredRestaurants=cuisineFilter==="All"?restaurants:restaurants.filter(r=>r.cuisine===cuisineFilter);
+
+  // Apply slot status filter (from counter clicks) - only show restaurants/tables with matching status
+  // Sort: restaurants with bookings first, then alphabetically
+  const sortedRestaurants=[...filteredRestaurants].sort((a,b)=>{
+    const aBooked=Object.entries(slots).filter(([k])=>k.startsWith(a.id)).some(([,v])=>v.status==="BOOKED");
+    const bBooked=Object.entries(slots).filter(([k])=>k.startsWith(b.id)).some(([,v])=>v.status==="BOOKED");
+    if(aBooked!==bBooked)return aBooked?-1:1;
+    return(a.name||"").localeCompare(b.name||"");
+  });
+  const displayRestaurants=slotFilter?sortedRestaurants.filter(r=>{
+    const rs=Object.entries(slots).filter(([k])=>k.startsWith(r.id));
+    return rs.some(([,v])=>v.status===slotFilter);
+  }):sortedRestaurants;
+
+  // For each restaurant, compute which tables to show (all tables or only those with matching status)
+  const getDisplayTables=(r)=>{
+    if(!slotFilter)return r.tableIds||[];
+    return(r.tableIds||[]).filter(tId=>activeTimes.some(ts=>{const sl=slots[tId+":"+ts];return sl&&sl.status===slotFilter}));
+  };
+
+  const reset=()=>{if(mode==="simulate"){setSlots(makeSlots(SIM_R));setRestaurants(SIM_R)}setAgents([]);setLog([]);setMet({searches:0,holds:0,books:0,holdFail:0,bookFail:0,idem:0,redis:0,db:0});setChaos(null);setCuisineFilter("All");setSlotFilter(null);setExpanded(null);setExpandedData(null)};
+
+  // Counter click handlers — filter canvas or expand multi-day
+  const onCounter=(label)=>{
+    if(label==="HOLDS L1"||label==="HELD"){
+      sendCmd({command:"get_holds"});
+      if(mode==="live"){
+        if(expanded==="HELD"){setExpanded(null);setExpandedData(null);setSlotFilter(null)}
+        else{sendCmd({command:"expand_slots",status:"HELD"});setExpanded("HELD");setSlotFilter("HELD")}
+      }else{setSlotFilter(slotFilter==="HELD"?null:"HELD")}
+    }
+    else if(label==="BOOKINGS L2"){
+      sendCmd({command:"get_bookings"});
+      if(mode==="live"){
+        if(expanded==="BOOKED"){setExpanded(null);setExpandedData(null);setSlotFilter(null)}
+        else{sendCmd({command:"expand_slots",status:"BOOKED"});setExpanded("BOOKED");setSlotFilter("BOOKED")}
+      }else{setSlotFilter(slotFilter==="BOOKED"?null:"BOOKED")}
+    }
+    else{setSlotFilter(null);setExpanded(null);setExpandedData(null)}
+  };
+
+  // Date navigation
+  const formatDateLabel=(d)=>{if(!d)return"";try{const dt=new Date(d+"T12:00:00");return dt.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}catch{return d}};
+  const dateIdx=availableDates.indexOf(viewDate);
+  const canPrev=dateIdx>0;
+  const canNext=dateIdx>=0&&dateIdx<availableDates.length-1;
+  const changeDate=(newDate)=>{setViewDate(newDate);setExpanded(null);setExpandedData(null);setSlotFilter(null);sendCmd({command:"set_date",date:newDate})};
+  const goToday=()=>{const today=new Date().toISOString().slice(0,10);const closest=availableDates.find(d=>d>=today)||availableDates[0];if(closest)changeDate(closest)};
+
+  // Admin setting change
+  const setSetting=(key,value)=>{
+    setAdminSettings(prev=>({...prev,[key]:value}));
+    sendCmd({command:"set_setting",key,value});
+  };
 
   // ── Loading state ──
   if(mode===null)return React.createElement("div",{style:{minHeight:"100vh",background:P.page,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}},
@@ -220,15 +389,16 @@ function App(){
         React.createElement("div",{style:{width:10,height:10,borderRadius:"50%",background:(mode==="live"?wsOk&&infra.postgres:on)?"#34d399":"#718096"}}),
         React.createElement("span",{style:{fontSize:17,fontWeight:700,letterSpacing:2,color:"#fbbf24"}},"ANNA'S BOOKTABLE"),
         React.createElement("span",{style:{fontSize:10,color:"#a0aec0",letterSpacing:1}},mode==="live"?"LIVE":"SIMULATE"),
-        liveDate&&mode==="live"&&React.createElement("span",{style:{fontSize:10,color:"#68d391",marginLeft:8}},new Date(liveDate).toLocaleDateString())
+        viewDate&&mode==="live"&&React.createElement("span",{style:{fontSize:10,color:"#68d391",marginLeft:8}},formatDateLabel(viewDate))
       ),
       React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
-        React.createElement("div",{style:{padding:"4px 10px",borderRadius:4,fontSize:10,fontWeight:700,background:mode==="live"?"#3182ce":"#d69e2e",color:"#fff"}},mode==="live"?"🔌 LIVE":"🎮 SIM"),
-        mode==="simulate"&&React.createElement(React.Fragment,null,
-          React.createElement("button",{onClick:()=>setOn(!on),style:B({background:on?"#c53030":"#2f855a",color:"#fff",fontWeight:700})},on?"⏸ PAUSE":"▶ START"),
+        React.createElement("div",{style:{padding:"4px 10px",borderRadius:4,fontSize:10,fontWeight:700,background:mode==="live"?"#3182ce":"#d69e2e",color:"#fff"}},mode==="live"?"\u{1F50C} LIVE":"\u{1F3AE} SIM"),
+        React.createElement(React.Fragment,null,
+          React.createElement("button",{onClick:()=>setOn(!on),style:B({background:on?"#c53030":"#2f855a",color:"#fff",fontWeight:700})},on?(mode==="live"?"\u23F8 STOP AGENTS":"\u23F8 PAUSE"):(mode==="live"?"\u{1F916} START AGENTS":"\u25B6 START")),
           [1,2,4].map(s=>React.createElement("button",{key:s,onClick:()=>setSpeed(s),style:B({background:speed===s?"#d69e2e":"#4a5568",color:"#fff",minWidth:28,fontWeight:speed===s?700:400})},s+"x"))
         ),
-        React.createElement("button",{onClick:reset,style:B({background:"#4a5568",color:"#e2e8f0"})},"↻ RESET")
+        React.createElement("button",{onClick:()=>setShowAdmin(!showAdmin),style:B({background:showAdmin?"#6d28d9":"#4a5568",color:"#fff"})},"\u2699 Admin"),
+        React.createElement("button",{onClick:reset,style:B({background:"#4a5568",color:"#e2e8f0"})}," \u21BB RESET")
       )
     ),
 
@@ -237,71 +407,194 @@ function App(){
       React.createElement("span",{style:{letterSpacing:2,fontWeight:700,color:"#a0aec0"}},"INFRA"),
       envInfo.azure&&React.createElement("span",{style:{padding:"1px 6px",borderRadius:3,background:"#2b6cb0",color:"#fff",fontWeight:700,fontSize:9}},"AZURE"),
       [["Bridge",wsOk],[envInfo.messaging==="service-bus"?"ServiceBus":"RabbitMQ",infra.messaging],["Redis",infra.redis],["PostgreSQL",infra.postgres]].map(([n,c])=>
-        React.createElement("span",{key:n,style:{color:c?"#68d391":"#fc8181"}},"● "+n)
+        React.createElement("span",{key:n,style:{color:c?"#68d391":"#fc8181"}},"\u25CF "+n)
       ),
-      redisStats&&React.createElement("span",{style:{color:"#a0aec0",marginLeft:10}},"Redis hit: "+redisStats.hitRate+" • Mem: "+redisStats.memory)
+      redisStats&&React.createElement("span",{style:{color:"#a0aec0",marginLeft:10}},"Redis hit: "+redisStats.hitRate+" \u2022 Mem: "+redisStats.memory)
+    ),
+
+    // ADMIN PANEL
+    showAdmin&&React.createElement("div",{style:{background:"#e2e8f0",borderBottom:"2px solid "+P.border,padding:"10px 20px",display:"flex",gap:20,alignItems:"center",flexWrap:"wrap"}},
+      React.createElement("span",{style:{fontSize:10,fontWeight:700,color:P.purple,letterSpacing:2}},"\u2699 ADMIN CONTROLS"),
+      React.createElement(Toggle,{checked:adminSettings.require_cc_hold_peak,onChange:v=>setSetting("require_cc_hold_peak",v),label:"CC hold on peak times"}),
+      React.createElement(Toggle,{checked:adminSettings.require_cc_hold_holidays,onChange:v=>setSetting("require_cc_hold_holidays",v),label:"CC hold on holidays"}),
+      React.createElement("label",{style:{display:"flex",alignItems:"center",gap:6,fontSize:11,color:P.text}},
+        "Duration (min):",
+        React.createElement("input",{type:"number",value:adminSettings.reservation_duration_minutes,onChange:e=>setSetting("reservation_duration_minutes",parseInt(e.target.value)||90),
+          style:{width:48,padding:"2px 4px",border:"1px solid "+P.border,borderRadius:3,fontSize:11,fontFamily:"inherit",textAlign:"center"}}))
     ),
 
     // CHAOS BAR (simulate only)
     mode==="simulate"&&React.createElement("div",{style:{background:chaos?"#fed7d7":P.card,borderBottom:"1px solid "+(chaos?P.redBd:P.border),padding:"7px 20px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}},
-      React.createElement("span",{style:{fontSize:10,color:P.red,letterSpacing:2,fontWeight:700}},"🔥 FAILURE SIM"),
+      React.createElement("span",{style:{fontSize:10,color:P.red,letterSpacing:2,fontWeight:700}},"\u{1F525} FAILURE SIM"),
       [{id:null,l:"NORMAL"},{id:"redis_down",l:"REDIS DOWN"},{id:"split_brain",l:"SPLIT BRAIN"}].map(c=>
         React.createElement("button",{key:c.id||"x",onClick:()=>setChaos(c.id),style:B({background:chaos===c.id?(c.id?"#c53030":"#2f855a"):P.card,color:chaos===c.id?"#fff":P.sub,fontSize:10,border:"1px solid "+(chaos===c.id?"transparent":P.border)})},c.l)
       ),
-      chaos&&React.createElement("span",{style:{fontSize:10,color:P.amber,fontWeight:600}},"⚠ "+({redis_down:"Holds disabled — DB unique constraint protects",split_brain:"Inconsistent holds — DB saves us"}[chaos]||""))
+      chaos&&React.createElement("span",{style:{fontSize:10,color:P.amber,fontWeight:600}},"\u26A0 "+({redis_down:"Holds disabled \u2014 DB unique constraint protects",split_brain:"Inconsistent holds \u2014 DB saves us"}[chaos]||""))
     ),
 
-    // METRICS
-    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:2,padding:2,background:P.border}},
-      [["SEARCHES",met.searches,P.blue],["HOLDS L1",met.holds,P.amber],["BOOKINGS L2",met.books,P.green],["CONFLICTS",met.holdFail+met.bookFail,P.red],["IDEM L3",met.idem,P.purple],["REDIS OPS",met.redis,P.teal],["DB OPS",met.db,"#9b2c2c"],["UTIL",util+"%",parseFloat(util)>60?P.red:P.green],["CONFLICT%",cr+"%",parseFloat(cr)>5?P.red:P.green],[mode==="live"?"HELD":"AGENTS",mode==="live"?sc.HELD:agents.length,P.orange]].map(([l,v,c])=>
-        React.createElement("div",{key:l,style:{background:P.card,padding:"8px 12px"}},
-          React.createElement("div",{style:{fontSize:8,color:P.muted,letterSpacing:1.5,marginBottom:2}},l),
-          React.createElement("div",{style:{fontSize:17,fontWeight:700,color:c,fontVariantNumeric:"tabular-nums"}},v))
-      )
+    // CUISINE FILTER BAR
+    React.createElement("div",{style:{padding:"6px 20px",display:"flex",gap:4,alignItems:"center",flexWrap:"wrap",borderBottom:"1px solid "+P.border,background:P.card}},
+      React.createElement("span",{style:{fontSize:9,fontWeight:700,color:P.muted,letterSpacing:1.5,marginRight:6}},"FILTER"),
+      React.createElement("button",{onClick:()=>{setCuisineFilter("All");setSlotFilter(null)},style:B({background:cuisineFilter==="All"?"#d69e2e":P.card,color:cuisineFilter==="All"?"#fff":P.sub,fontSize:10,border:"1px solid "+(cuisineFilter==="All"?"transparent":P.border),padding:"3px 8px"})},"All ("+restaurants.length+")"),
+      allCuisines.map(c=>React.createElement("button",{key:c,onClick:()=>{setCuisineFilter(c);setSlotFilter(null)},style:B({background:cuisineFilter===c?"#d69e2e":P.card,color:cuisineFilter===c?"#fff":P.sub,fontSize:10,border:"1px solid "+(cuisineFilter===c?"transparent":P.border),padding:"3px 8px"})},cuisineEmoji(c)+" "+c+" ("+restaurants.filter(r=>r.cuisine===c).length+")"))
     ),
+
+    // DATE PICKER (live mode only)
+    mode==="live"&&availableDates.length>0&&React.createElement("div",{style:{padding:"6px 20px",display:"flex",gap:8,alignItems:"center",borderBottom:"1px solid "+P.border,background:"#e8ecf0"}},
+      React.createElement("span",{style:{fontSize:9,fontWeight:700,color:P.muted,letterSpacing:1.5,marginRight:4}},"\u{1F4C5} DATE"),
+      React.createElement("button",{onClick:()=>canPrev&&changeDate(availableDates[dateIdx-1]),disabled:!canPrev,
+        style:{...B0,padding:"3px 8px",fontSize:12,opacity:canPrev?1:0.3,cursor:canPrev?"pointer":"default"}},"\u25C0"),
+      React.createElement("span",{style:{fontSize:11,fontWeight:700,color:P.text,minWidth:170,textAlign:"center"}},formatDateLabel(viewDate)),
+      React.createElement("button",{onClick:()=>canNext&&changeDate(availableDates[dateIdx+1]),disabled:!canNext,
+        style:{...B0,padding:"3px 8px",fontSize:12,opacity:canNext?1:0.3,cursor:canNext?"pointer":"default"}},"\u25B6"),
+      React.createElement("button",{onClick:goToday,style:B({fontSize:10,padding:"3px 10px",background:"#2f855a",color:"#fff"})},"Today"),
+      React.createElement("span",{style:{fontSize:9,color:P.muted,marginLeft:8}},availableDates.length+" date"+(availableDates.length!==1?"s":"")+" available")
+    ),
+
+    // METRICS (clickable — HOLDS and BOOKINGS filter the canvas)
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:2,padding:2,background:P.border}},
+      [["SEARCHES",met.searches,P.blue],["HOLDS L1",met.holds,P.amber],["BOOKINGS L2",met.books,P.green],["CONFLICTS",met.holdFail+met.bookFail,P.red],["IDEM L3",met.idem,P.purple],["REDIS OPS",met.redis,P.teal],["DB OPS",met.db,"#9b2c2c"],["UTIL",util+"%",parseFloat(util)>60?P.red:P.green],["CONFLICT%",cr+"%",parseFloat(cr)>5?P.red:P.green],[mode==="live"?"HELD":"AGENTS",mode==="live"?sc.HELD:agents.length,P.orange]].map(([l,v,c])=>{
+        const isActive=(l==="HOLDS L1"&&slotFilter==="HELD")||(l==="BOOKINGS L2"&&slotFilter==="BOOKED")||((l==="HELD"||l==="AGENTS")&&slotFilter==="HELD");
+        return React.createElement("div",{key:l,onClick:()=>onCounter(l),style:{background:isActive?"#2d3748":P.card,padding:"8px 12px",cursor:"pointer",transition:"background 0.15s",borderBottom:isActive?"3px solid "+c:"3px solid transparent"}},
+          React.createElement("div",{style:{fontSize:8,color:isActive?"#a0aec0":P.muted,letterSpacing:1.5,marginBottom:2}},l),
+          React.createElement("div",{style:{fontSize:17,fontWeight:700,color:isActive?"#fff":c,fontVariantNumeric:"tabular-nums"}},v))})
+    ),
+
+    // ACTIVE FILTER / EXPANSION INDICATOR
+    slotFilter&&React.createElement("div",{style:{padding:"5px 20px",background:slotFilter==="BOOKED"?P.greenBg:P.amberBg,borderBottom:"2px solid "+(slotFilter==="BOOKED"?P.greenBd:P.amberBd),display:"flex",alignItems:"center",justifyContent:"space-between"}},
+      React.createElement("span",{style:{fontSize:10,fontWeight:700,color:slotFilter==="BOOKED"?P.green:P.amber}},
+        expanded&&expandedData
+          ?(slotFilter==="BOOKED"?"\u{1F4D6}":"\u{1F6E1}\uFE0F")+" EXPANDED: All "+slotFilter+" slots across "+(expandedData.dates||[]).length+" day"+((expandedData.dates||[]).length!==1?"s":"")
+          :(slotFilter==="BOOKED"?"\u{1F4D6}":"\u{1F6E1}\uFE0F")+" Showing: "+slotFilter+" only \u2014 "+displayRestaurants.length+" restaurant"+(displayRestaurants.length!==1?"s":"")),
+      React.createElement("button",{onClick:()=>{setSlotFilter(null);setExpanded(null);setExpandedData(null)},style:B({fontSize:10,padding:"2px 8px"})},"\u2715 Clear"+(expanded?" expansion":" filter"))),
 
     // MAIN
-    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 320px",minHeight:"calc(100vh - 260px)"}},
-      // LEFT
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 320px",minHeight:"calc(100vh - 300px)"}},
+      // LEFT — restaurant table grids (single-day or multi-day expanded)
       React.createElement("div",{style:{padding:14,overflow:"auto"}},
-        // Restaurant tabs
-        React.createElement("div",{style:{display:"flex",gap:5,marginBottom:14,flexWrap:"wrap"}},
-          restaurants.map(r=>{
-            const rs=Object.entries(slots).filter(([k])=>k.startsWith(r.id));
-            const bk=rs.filter(([,v])=>v.status==="BOOKED").length,hl=rs.filter(([,v])=>v.status==="HELD").length;
-            const sel=vr.id===r.id;
-            return React.createElement("button",{key:r.id,onClick:()=>setSelR(r),style:{...B0,padding:"7px 10px",minWidth:130,textAlign:"left",background:sel?P.amberBg:P.card,border:"2px solid "+(sel?P.amberBd:P.border),boxShadow:sel?"0 2px 8px rgba(180,83,9,0.2)":"0 1px 3px rgba(0,0,0,0.06)"}},
-              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5}},
-                React.createElement("span",null,r.emoji),
-                React.createElement("span",{style:{fontSize:11,fontWeight:600,color:sel?"#92400e":P.text}},r.name)),
-              React.createElement("div",{style:{fontSize:9,color:P.muted,display:"flex",gap:6,marginTop:2}},
-                React.createElement("span",{style:{color:P.green,fontWeight:600}},"●"+bk),
-                React.createElement("span",{style:{color:P.amber,fontWeight:600}},"●"+hl),
-                React.createElement("span",null,(r.tableIds?r.tableIds.length:r.tables)+"T"))
-            )})
-        ),
-        // Table grid
-        React.createElement("div",{style:{background:P.card,borderRadius:8,border:"2px solid "+P.border,overflow:"hidden",boxShadow:"0 2px 10px rgba(0,0,0,0.1)"}},
-          React.createElement("div",{style:{padding:"10px 14px",borderBottom:"2px solid "+P.border,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#e2e8f0"}},
-            React.createElement("span",{style:{fontSize:13,fontWeight:700}},vr.emoji+" "+vr.name,React.createElement("span",{style:{fontWeight:400,color:P.muted,marginLeft:8,fontSize:11}},vr.cuisine+" • "+(vr.tableIds?vr.tableIds.length:vr.tables)+"T")),
-            React.createElement("div",{style:{display:"flex",gap:10,fontSize:10}},
-              React.createElement("span",null,React.createElement("span",{style:{color:P.green}},"●")," Booked"),
-              React.createElement("span",null,React.createElement("span",{style:{color:P.amber}},"●")," Held"),
-              React.createElement("span",null,React.createElement("span",{style:{color:P.slotEmpty}},"●")," Avail"))),
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"72px repeat("+TIMES.length+",1fr)",background:"#e2e8f0",borderBottom:"1px solid "+P.border}},
-            React.createElement("div",{style:{padding:"6px 10px",fontSize:9,fontWeight:700,color:P.sub}},"TABLE"),
-            TIMES.map(t=>React.createElement("div",{key:t,style:{padding:"6px 2px",fontSize:9,fontWeight:700,color:P.sub,textAlign:"center",borderLeft:"1px solid "+P.border}},t))),
-          (vr.tableIds||[]).map(tId=>
-            React.createElement("div",{key:tId,style:{display:"grid",gridTemplateColumns:"72px repeat("+TIMES.length+",1fr)",borderBottom:"1px solid "+P.border}},
-              React.createElement("div",{style:{padding:"8px 10px",fontSize:10,color:P.sub,fontWeight:600}},"🪑 "+(tId.split("-T")[1]||tId.split("-").pop())),
-              TIMES.map(ts=>{
-                const sl=slots[tId+":"+ts];const b=sl&&sl.status==="BOOKED",h=sl&&sl.status==="HELD";
-                return React.createElement("div",{key:ts,style:{borderLeft:"1px solid "+P.border,padding:3,display:"flex",alignItems:"center",justifyContent:"center"}},
-                  React.createElement("div",{style:{width:"100%",height:30,borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,background:b?P.greenBg:h?P.amberBg:P.slotEmpty,border:"2px solid "+(b?P.greenBd:h?P.amberBd:"#bbc2cc"),color:b?P.green:h?P.amber:"#8892a2",transition:"all 0.3s",animation:h?"holdPulse 2s infinite":"none"}},
-                    b?(sl.bookedBy?(""+sl.bookedBy).slice(0,4):"BKD"):h?("⏳"+(sl.heldBy||"").toString().slice(0,3)):"—"))}))
-          ),
-          (!vr.tableIds||vr.tableIds.length===0)&&React.createElement("div",{style:{padding:24,textAlign:"center",color:P.muted,fontSize:12}},mode==="live"?"Waiting for slot data...":"No tables")
-        ),
+        // Legend
+        React.createElement("div",{style:{display:"flex",gap:12,marginBottom:10,fontSize:10,alignItems:"center"}},
+          React.createElement("span",{style:{fontWeight:700,color:P.sub}},expanded&&expandedData?"Expanded view":(displayRestaurants.length+" restaurant"+(displayRestaurants.length!==1?"s":""))),
+          React.createElement("span",null,React.createElement("span",{style:{display:"inline-block",width:10,height:10,borderRadius:"50%",background:P.greenBg,border:"2px solid "+P.greenBd,verticalAlign:"middle",marginRight:3}}),React.createElement("span",null,"Booked")),
+          React.createElement("span",null,React.createElement("span",{style:{display:"inline-block",width:10,height:10,borderRadius:"50%",background:P.amberBg,border:"2px solid "+P.amberBd,verticalAlign:"middle",marginRight:3}}),React.createElement("span",null,"Held")),
+          React.createElement("span",null,React.createElement("span",{style:{display:"inline-block",width:10,height:10,borderRadius:"50%",background:P.slotEmpty,border:"2px solid #bbc2cc",verticalAlign:"middle",marginRight:3}}),React.createElement("span",null,"Avail"))),
+        // Multi-day expanded view
+        expanded&&expandedData&&expandedData.dates&&expandedData.dates.length>0?(()=>{
+          const allRests=(expandedData.restaurants||[]).map(r=>({id:r.restaurant_id,name:r.name,cuisine:r.cuisine,emoji:cuisineEmoji(r.cuisine)}));
+          return expandedData.dates.map(rawDate=>{
+            const dateStr=String(rawDate).slice(0,10);
+            const daySlots=expandedData.slotsByDate[dateStr]||[];
+            if(daySlots.length===0)return null;
+            // Build slot map and table/time sets for this date
+            const slotMap={};const tbr={};const timeSet=new Set();
+            daySlots.forEach(s=>{
+              const tKey=s.restaurant_id+"-"+s.table_number;const ts=formatTime(s.start_time);
+              if(ts)timeSet.add(ts);
+              if(!tbr[s.restaurant_id])tbr[s.restaurant_id]=new Set();
+              tbr[s.restaurant_id].add(tKey);
+              slotMap[tKey+":"+ts]={status:s.status||"AVAILABLE",heldBy:s.held_by,bookedBy:s.booked_by_name||s.booked_by,holdExp:s.held_until?new Date(s.held_until).getTime():null};
+            });
+            const dayTimes=[...timeSet].sort((a,b)=>{const[ah,am]=a.split(":").map(Number);const[bh,bm]=b.split(":").map(Number);return ah*60+am-bh*60-bm});
+            if(dayTimes.length===0)return null;
+            // Filter restaurants that have slots on this date, sort: booked first then alpha
+            const dayRests=allRests.filter(r=>tbr[r.id]&&tbr[r.id].size>0).sort((a,b)=>{
+              const aBooked=Object.entries(slotMap).filter(([k])=>k.startsWith(a.id)).some(([,v])=>v.status==="BOOKED");
+              const bBooked=Object.entries(slotMap).filter(([k])=>k.startsWith(b.id)).some(([,v])=>v.status==="BOOKED");
+              if(aBooked!==bBooked)return aBooked?-1:1;
+              return(a.name||"").localeCompare(b.name||"");
+            });
+            const filteredDayRests=cuisineFilter==="All"?dayRests:dayRests.filter(r=>r.cuisine===cuisineFilter);
+            if(filteredDayRests.length===0)return null;
+            return React.createElement("div",{key:dateStr,style:{marginBottom:16}},
+              // Date header bar
+              React.createElement("div",{style:{padding:"8px 14px",background:"#2d3748",borderRadius:"8px 8px 0 0",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+                React.createElement("span",{style:{fontSize:12,fontWeight:700,color:"#fbbf24"}},formatDateLabel(dateStr)),
+                React.createElement("span",{style:{fontSize:10,color:"#a0aec0"}},daySlots.length+" slot"+(daySlots.length!==1?"s":"")+" across "+filteredDayRests.length+" restaurant"+(filteredDayRests.length!==1?"s":""))),
+              // Restaurant grids for this date
+              filteredDayRests.map(r=>{
+                const tIds=Array.from(tbr[r.id]||[]).sort();
+                const rs=Object.entries(slotMap).filter(([k])=>k.startsWith(r.id));
+                const bk=rs.filter(([,v])=>v.status==="BOOKED").length,hl=rs.filter(([,v])=>v.status==="HELD").length;
+                return React.createElement("div",{key:r.id+"-"+dateStr,style:{background:P.card,border:"2px solid "+P.border,borderTop:"none",overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.08)"}},
+                  React.createElement("div",{style:{padding:"6px 12px",borderBottom:"1px solid "+P.border,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#e2e8f0"}},
+                    React.createElement("span",{style:{fontSize:11,fontWeight:700}},r.emoji+" "+r.name,React.createElement("span",{style:{fontWeight:400,color:P.muted,marginLeft:6,fontSize:9}},r.cuisine)),
+                    React.createElement("div",{style:{display:"flex",gap:8,fontSize:9}},
+                      React.createElement("span",{style:{color:P.green,fontWeight:700}},"\u25CF"+bk),
+                      React.createElement("span",{style:{color:P.amber,fontWeight:700}},"\u25CF"+hl),
+                      React.createElement("span",{style:{color:P.muted}},tIds.length+"T"))),
+                  React.createElement("div",{style:{display:"grid",gridTemplateColumns:"70px repeat("+dayTimes.length+",1fr)",background:"#e8ecf0",borderBottom:"1px solid "+P.border}},
+                    React.createElement("div",{style:{padding:"3px 6px",fontSize:8,fontWeight:700,color:P.sub}},"TABLE"),
+                    dayTimes.map(t=>React.createElement("div",{key:t,style:{padding:"3px 2px",fontSize:8,fontWeight:700,color:P.sub,textAlign:"center",borderLeft:"1px solid "+P.border}},t))),
+                  tIds.map((tId,tIdx)=>{
+                    const tNum=tId.split("-T")[1]||tId.split("-").pop();
+                    const seatCount=2+Math.min(tIdx%4,2)*2;
+                    return React.createElement("div",{key:tId,style:{display:"grid",gridTemplateColumns:"70px repeat("+dayTimes.length+",1fr)",borderBottom:"1px solid "+P.border,background:tIdx%2===0?"transparent":"rgba(0,0,0,0.015)"}},
+                      React.createElement("div",{style:{padding:"4px 4px",display:"flex",alignItems:"center",gap:3}},
+                        React.createElement("svg",{width:22,height:22,viewBox:"0 0 28 28"},
+                          React.createElement("rect",{x:6,y:6,width:16,height:16,rx:3,fill:P.card,stroke:P.border,strokeWidth:1.5}),
+                          ...Array.from({length:Math.min(seatCount,6)},(_,i)=>{
+                            const positions=[[14,2],[14,26],[2,14],[26,14],[4,4],[24,24]];
+                            const pp=positions[i]||[14,14];
+                            return React.createElement("circle",{key:i,cx:pp[0],cy:pp[1],r:2.5,fill:"#a0a8b4",stroke:"#e2e8f0",strokeWidth:0.5})})),
+                        React.createElement("div",{style:{lineHeight:1.1}},
+                          React.createElement("span",{style:{fontSize:9,fontWeight:700,color:P.sub}},"T"+tNum),
+                          React.createElement("br",null),
+                          React.createElement("span",{style:{fontSize:6,color:P.muted}},seatCount+"s"))),
+                      dayTimes.map(ts=>{
+                        const sl=slotMap[tId+":"+ts];const b=sl&&sl.status==="BOOKED",h=sl&&sl.status==="HELD";
+                        return React.createElement("div",{key:ts,style:{borderLeft:"1px solid "+P.border,padding:1,display:"flex",alignItems:"center",justifyContent:"center"}},
+                          React.createElement("div",{style:{width:"100%",height:30,borderRadius:4,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:6,fontWeight:700,background:b?"linear-gradient(135deg,"+P.greenBg+",#a7f3d0)":h?"linear-gradient(135deg,"+P.amberBg+",#fde68a)":P.slotEmpty,border:"1.5px solid "+(b?P.greenBd:h?P.amberBd:"#bbc2cc"),color:b?P.green:h?P.amber:"#8892a2",transition:"all 0.3s",animation:h?"holdPulse 2s infinite":"none",overflow:"hidden"}},
+                            React.createElement("span",{style:{fontSize:7,fontWeight:700,lineHeight:1}},
+                              b?(sl.bookedBy?(""+sl.bookedBy).slice(0,4):"BKD"):h?("\u23F3"+(sl.heldBy||"").toString().slice(0,3)):"\u2014")))}))}))}))});
+        })()
+        :React.createElement(React.Fragment,null,
+        // Single-day restaurant grids (normal view)
+        displayRestaurants.length===0&&React.createElement("div",{style:{padding:32,textAlign:"center",color:P.muted,fontSize:12}},
+          slotFilter?"No restaurants with "+slotFilter+" slots":mode==="live"?"Waiting for slot data...":"No restaurants match filter"),
+        displayRestaurants.map(r=>{
+          const dTables=getDisplayTables(r);
+          const rs=Object.entries(slots).filter(([k])=>k.startsWith(r.id));
+          const bk=rs.filter(([,v])=>v.status==="BOOKED").length,hl=rs.filter(([,v])=>v.status==="HELD").length;
+          return React.createElement("div",{key:r.id,style:{background:P.card,borderRadius:8,border:"2px solid "+P.border,overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.08)",marginBottom:10}},
+            // Restaurant header
+            React.createElement("div",{style:{padding:"6px 12px",borderBottom:"1px solid "+P.border,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#e2e8f0"}},
+              React.createElement("span",{style:{fontSize:11,fontWeight:700}},r.emoji+" "+r.name,React.createElement("span",{style:{fontWeight:400,color:P.muted,marginLeft:6,fontSize:9}},r.cuisine)),
+              React.createElement("div",{style:{display:"flex",gap:8,fontSize:9}},
+                React.createElement("span",{style:{color:P.green,fontWeight:700}},"\u25CF"+bk),
+                React.createElement("span",{style:{color:P.amber,fontWeight:700}},"\u25CF"+hl),
+                React.createElement("span",{style:{color:P.muted}},dTables.length+"T"))),
+            // Time headers
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"70px repeat("+activeTimes.length+",1fr)",background:"#e8ecf0",borderBottom:"1px solid "+P.border}},
+              React.createElement("div",{style:{padding:"3px 6px",fontSize:8,fontWeight:700,color:P.sub}},"TABLE"),
+              activeTimes.map(t=>React.createElement("div",{key:t,style:{padding:"3px 2px",fontSize:8,fontWeight:700,color:P.sub,textAlign:"center",borderLeft:"1px solid "+P.border}},t))),
+            // Table rows
+            dTables.map((tId,tIdx)=>{
+              const tNum=tId.split("-T")[1]||tId.split("-").pop();
+              const seatCount=2+Math.min(tIdx%4,2)*2;
+              return React.createElement("div",{key:tId,style:{display:"grid",gridTemplateColumns:"70px repeat("+activeTimes.length+",1fr)",borderBottom:"1px solid "+P.border,background:tIdx%2===0?"transparent":"rgba(0,0,0,0.015)"}},
+                // Table label with mini SVG
+                React.createElement("div",{style:{padding:"4px 4px",display:"flex",alignItems:"center",gap:3}},
+                  React.createElement("svg",{width:22,height:22,viewBox:"0 0 28 28"},
+                    React.createElement("rect",{x:6,y:6,width:16,height:16,rx:3,fill:P.card,stroke:P.border,strokeWidth:1.5}),
+                    ...Array.from({length:Math.min(seatCount,6)},(_,i)=>{
+                      const positions=[[14,2],[14,26],[2,14],[26,14],[4,4],[24,24]];
+                      const p=positions[i]||[14,14];
+                      return React.createElement("circle",{key:i,cx:p[0],cy:p[1],r:2.5,fill:"#a0a8b4",stroke:"#e2e8f0",strokeWidth:0.5})
+                    })),
+                  React.createElement("div",{style:{lineHeight:1.1}},
+                    React.createElement("span",{style:{fontSize:9,fontWeight:700,color:P.sub}},"T"+tNum),
+                    React.createElement("br",null),
+                    React.createElement("span",{style:{fontSize:6,color:P.muted}},seatCount+"s"))),
+                activeTimes.map(ts=>{
+                  const sl=slots[tId+":"+ts];const b=sl&&sl.status==="BOOKED",h=sl&&sl.status==="HELD";
+                  const partySize=b?Math.min(seatCount,2+Math.floor(Math.random()*3)):h?Math.min(seatCount,2+Math.floor(Math.random()*2)):0;
+                  return React.createElement("div",{key:ts,style:{borderLeft:"1px solid "+P.border,padding:1,display:"flex",alignItems:"center",justifyContent:"center"}},
+                    React.createElement("div",{style:{width:"100%",height:30,borderRadius:4,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:6,fontWeight:700,background:b?"linear-gradient(135deg,"+P.greenBg+",#a7f3d0)":h?"linear-gradient(135deg,"+P.amberBg+",#fde68a)":P.slotEmpty,border:"1.5px solid "+(b?P.greenBd:h?P.amberBd:"#bbc2cc"),color:b?P.green:h?P.amber:"#8892a2",transition:"all 0.3s",animation:h?"holdPulse 2s infinite":"none",overflow:"hidden"}},
+                      React.createElement("span",{style:{fontSize:7,fontWeight:700,lineHeight:1}},
+                        b?(sl.bookedBy?(""+sl.bookedBy).slice(0,4):"BKD"):h?("\u23F3"+(sl.heldBy||"").toString().slice(0,3)):"\u2014"),
+                      (b||h)&&React.createElement("div",{style:{display:"flex",gap:1,marginTop:1}},
+                        ...Array.from({length:partySize},(_,i)=>
+                          React.createElement("div",{key:i,style:{width:3,height:3,borderRadius:"50%",background:b?"#059669":P.amber,opacity:0.8}})))))}))}))})),
         // Defense layers
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:14}},
           [{l:"L1",n:"Redis SETNX",p:"UX Hold (5 min)",ops:met.holds,cf:met.holdFail,c:P.amber,bg:P.amberBg,bd:P.amberBd,st:chaos==="redis_down"?"DOWN":chaos==="split_brain"?"DEGRADED":mode==="live"?infra.redis?"ACTIVE":"DOWN":"ACTIVE"},
@@ -317,22 +610,36 @@ function App(){
               React.createElement("div",{style:{display:"flex",gap:14,fontSize:10}},
                 React.createElement("span",null,"Ops: ",React.createElement("b",{style:{color:d.c}},d.ops)),
                 React.createElement("span",null,"Fail: ",React.createElement("b",{style:{color:d.cf>0?P.red:P.muted}},d.cf))),
-              React.createElement("div",{style:{marginTop:6,fontSize:9,padding:"2px 6px",borderRadius:3,display:"inline-block",fontWeight:700,background:d.st==="ACTIVE"?P.greenBg:d.st==="DEGRADED"?P.amberBg:P.redBg,color:d.st==="ACTIVE"?P.green:d.st==="DEGRADED"?P.amber:P.red,border:"1px solid "+(d.st==="ACTIVE"?P.greenBd:d.st==="DEGRADED"?P.amberBd:P.redBd)}},(d.st==="DOWN"?"✗":d.st==="DEGRADED"?"⚠":"✓")+" "+d.st)))
+              React.createElement("div",{style:{marginTop:6,fontSize:9,padding:"2px 6px",borderRadius:3,display:"inline-block",fontWeight:700,background:d.st==="ACTIVE"?P.greenBg:d.st==="DEGRADED"?P.amberBg:P.redBg,color:d.st==="ACTIVE"?P.green:d.st==="DEGRADED"?P.amber:P.red,border:"1px solid "+(d.st==="ACTIVE"?P.greenBd:d.st==="DEGRADED"?P.amberBd:P.redBd)}},(d.st==="DOWN"?"\u2717":d.st==="DEGRADED"?"\u26A0":"\u2713")+" "+d.st)))
+        ),
+        // External Agents panel
+        extAgents.length>0&&React.createElement("div",{style:{marginTop:14,background:P.card,borderRadius:8,border:"2px solid "+P.border,padding:14}},
+          React.createElement("div",{style:{fontSize:10,color:P.blue,letterSpacing:2,marginBottom:8,fontWeight:700}},"\u{1F916} CUSTOMER AGENTS"),
+          extAgents.map(ag=>React.createElement("div",{key:ag.name,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",marginBottom:4,borderRadius:4,background:ag.running?P.greenBg:P.page,border:"1px solid "+(ag.running?P.greenBd:P.border)}},
+            React.createElement("div",{style:{width:8,height:8,borderRadius:"50%",background:ag.color||P.blue}}),
+            React.createElement("span",{style:{fontSize:11,fontWeight:700,color:P.text,flex:1}},ag.name),
+            React.createElement("span",{style:{fontSize:9,color:P.muted}},ag.description),
+            React.createElement("span",{style:{fontSize:9,padding:"1px 6px",borderRadius:3,fontWeight:700,background:ag.running?P.greenBg:P.redBg,color:ag.running?P.green:P.red}},ag.running?"RUNNING":"STOPPED"),
+            React.createElement("span",{style:{fontSize:9,color:P.sub}},"Actions: ",ag.actionCount||0)))
         )
       ),
       // RIGHT: agents/log
       React.createElement("div",{style:{borderLeft:"2px solid "+P.border,display:"flex",flexDirection:"column",background:P.card}},
-        mode==="simulate"&&React.createElement("div",{style:{padding:10,borderBottom:"1px solid "+P.border,maxHeight:190,overflow:"auto"}},
-          React.createElement("div",{style:{fontSize:10,color:P.muted,letterSpacing:2,marginBottom:6,fontWeight:700}},"👥 AGENTS ("+agents.length+")"),
-          agents.length===0?React.createElement("div",{style:{fontSize:10,color:P.muted}},"Starting..."):
+        React.createElement("div",{style:{padding:10,borderBottom:"1px solid "+P.border,maxHeight:190,overflow:"auto"}},
+          React.createElement("div",{style:{fontSize:10,color:P.muted,letterSpacing:2,marginBottom:6,fontWeight:700}},"\u{1F465} "+(mode==="live"?"CUSTOMER AGENTS":"AGENTS")+" ("+agents.length+")"),
+          !on?React.createElement("div",{style:{fontSize:10,color:P.muted}},mode==="live"?"Click START AGENTS to begin":"Click START to begin"):
+          agents.length===0?React.createElement("div",{style:{fontSize:10,color:P.muted}},"Spawning..."):
           agents.map(a=>React.createElement("div",{key:a.id,style:{display:"flex",alignItems:"center",gap:6,padding:"3px 6px",marginBottom:3,borderRadius:4,background:P.page,border:"1px solid "+P.border,animation:"fadeIn 0.3s"}},
             React.createElement("div",{style:{width:6,height:6,borderRadius:"50%",background:a.color}}),
             React.createElement("span",{style:{fontSize:10,color:a.color,fontWeight:700,minWidth:44}},a.name),
-            React.createElement("span",{style:{fontSize:8,padding:"1px 5px",borderRadius:3,fontWeight:700,background:{SEARCH:"#dbeafe",PAY:P.amberBg,DIRECT:P.redBg,DONE:P.greenBg,FAIL:P.redBg}[a.st]||P.page,color:{SEARCH:P.blue,PAY:P.amber,DIRECT:P.red,DONE:P.green,FAIL:P.red}[a.st]||P.muted}},{SEARCH:"SEARCH",PAY:"PAYING",DIRECT:"DIRECT",DONE:"DONE",FAIL:"REJECT"}[a.st]),
+            React.createElement("span",{style:{fontSize:8,padding:"1px 5px",borderRadius:3,fontWeight:700,
+              background:{SEARCH:"#dbeafe",HOLDING:P.amberBg,PAY:P.amberBg,BOOKING:"#dbeafe",DIRECT:P.redBg,DONE:P.greenBg,FAIL:P.redBg}[a.st]||P.page,
+              color:{SEARCH:P.blue,HOLDING:P.amber,PAY:P.amber,BOOKING:P.blue,DIRECT:P.red,DONE:P.green,FAIL:P.red}[a.st]||P.muted}},
+              {SEARCH:"SEARCH",HOLDING:"HOLDING...",PAY:"PAYING",BOOKING:"BOOKING...",DIRECT:"DIRECT",DONE:"DONE",FAIL:"REJECT"}[a.st]),
             a.tgt&&React.createElement("span",{style:{fontSize:8,color:P.muted}},a.tgt.r.emoji+"T"+a.tgt.ti.split("-T")[1]+"@"+a.tgt.t)))
         ),
         React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column"}},
-          React.createElement("div",{style:{padding:"6px 10px",borderBottom:"1px solid "+P.border,fontSize:10,color:P.muted,letterSpacing:2,fontWeight:700}},"📋 EVENT LOG"),
+          React.createElement("div",{style:{padding:"6px 10px",borderBottom:"1px solid "+P.border,fontSize:10,color:P.muted,letterSpacing:2,fontWeight:700}},"\u{1F4CB} EVENT LOG"),
           React.createElement("div",{ref:lRef,style:{flex:1,overflow:"auto",padding:6,fontSize:10,lineHeight:1.7}},
             log.length===0?React.createElement("div",{style:{color:P.muted,padding:6}},"Waiting for events..."):
             log.map(e=>React.createElement("div",{key:e.id,style:{padding:"1px 4px",borderLeft:"3px solid "+eColor(e.type),marginBottom:2,display:"flex",gap:5,alignItems:"flex-start"}},

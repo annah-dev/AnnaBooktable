@@ -25,7 +25,7 @@ export default function RestaurantDetailPage() {
   const partySize = Number(searchParams.get('partySize')) || 2;
 
   const { data: restaurant } = useRestaurantDetail(id ?? '');
-  const { data: availability } = useAvailability(id ?? '', date, partySize);
+  const { data: availability, isPending: availabilityLoading } = useAvailability(id ?? '', date, partySize);
 
   if (!restaurant) {
     return (
@@ -41,9 +41,18 @@ export default function RestaurantDetailPage() {
 
   const tabs = ['All Seating', ...(restaurant.tableGroups?.map(tg => tg.name) ?? [])];
   const slots = availability?.slots ?? [];
-  const filteredSlots = activeTab === 'All Seating'
-    ? slots
-    : slots.filter(s => s.tableGroupName === activeTab);
+
+  // Dedup slots to avoid showing duplicate time pills
+  // "All Seating": dedup by time only (one pill per time regardless of table group)
+  // Specific tab: dedup by time (already filtered to one table group)
+  const seen = new Set<number>();
+  const allFiltered = (activeTab === 'All Seating' ? slots : slots.filter(s => s.tableGroupName === activeTab));
+  const filteredSlots = allFiltered.filter(s => {
+    const key = new Date(s.startTime).getTime();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   return (
     <div className="max-w-[900px] mx-auto px-8 pb-16">
@@ -110,7 +119,13 @@ export default function RestaurantDetailPage() {
             ))}
           </div>
 
-          {filteredSlots.length === 0 && (
+          {availabilityLoading && filteredSlots.length === 0 && (
+            <div className="text-center py-12">
+              <div className="animate-pulse font-sans text-sm text-text-tertiary">Loading available times...</div>
+            </div>
+          )}
+
+          {!availabilityLoading && filteredSlots.length === 0 && (
             <div className="text-center py-12">
               <div className="text-4xl mb-3 opacity-30">🕐</div>
               <p className="font-sans text-sm text-text-tertiary">No available slots for this selection</p>

@@ -1,0 +1,16 @@
+{
+  "name": "booktable-agents",
+  "version": "1.0.0",
+  "description": "Customer simulation agents for Booktable Monitor",
+  "main": "agents.js",
+  "scripts": {
+    "start": "node agents.js",
+    "agent1": "node agents.js --agent=walk-ins",
+    "agent2": "node agents.js --agent=sushi-lovers",
+    "agent3": "node agents.js --agent=food-explorers",
+    "all": "node agents.js --all"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

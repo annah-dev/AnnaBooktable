@@ -98,15 +98,15 @@ export default function HomePage() {
                   <StarRating rating={r.avgRating} />
                   <div className="flex gap-1.5 mt-3 flex-wrap">
                     {r.availableSlots
-                      .filter((s, i, arr) => arr.findIndex(x => x.startTime === s.startTime) === i)
+                      .filter((s, i, arr) => arr.findIndex(x => new Date(x.startTime).getTime() === new Date(s.startTime).getTime()) === i)
                       .slice(0, 3).map(slot => (
                       <span key={slot.slotId} className="font-mono text-[11px] px-2.5 py-[5px] rounded-lg border border-accent-glow text-accent accent-glow">
                         {format(new Date(slot.startTime), 'h:mm a')}
                       </span>
                     ))}
-                    {r.availableSlots.filter((s, i, arr) => arr.findIndex(x => x.startTime === s.startTime) === i).length > 3 && (
+                    {r.availableSlots.filter((s, i, arr) => arr.findIndex(x => new Date(x.startTime).getTime() === new Date(s.startTime).getTime()) === i).length > 3 && (
                       <span className="font-sans text-[11px] text-text-tertiary py-[5px] px-1">
-                        +{r.availableSlots.filter((s, i, arr) => arr.findIndex(x => x.startTime === s.startTime) === i).length - 3}
+                        +{r.availableSlots.filter((s, i, arr) => arr.findIndex(x => new Date(x.startTime).getTime() === new Date(s.startTime).getTime()) === i).length - 3}
                       </span>
                     )}
                   </div>

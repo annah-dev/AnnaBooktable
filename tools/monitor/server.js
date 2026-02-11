@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
  * Anna's Booktable — Unified Monitor Server
- * 
+ *
  * Works identically on localhost and Azure App Service.
- * 
+ *
  * Local:  node server.js           → simulate, opens browser
  *         node server.js --live    → connects to Docker infra
  * Azure:  Deployed as App Service  → auto-detects Azure env, connects to Azure infra
- * 
+ *
  * Single port serves both HTTP (dashboard) and WebSocket (bridge) via upgrade.
  */
 
@@ -23,7 +23,6 @@ const LIVE = IS_AZURE || process.argv.includes("--live");
 const PORT = parseInt(process.env.PORT || process.env.HTTP_PORT || "3099");
 
 // ─── Infrastructure Config ───
-// Auto-resolves: env vars → Azure defaults → Docker Compose defaults
 const config = {
   postgres: process.env.POSTGRES_URL
     || process.env.AZURE_POSTGRESQL_CONNECTIONSTRING
@@ -33,8 +32,6 @@ const config = {
     || process.env.AZURE_REDIS_CONNECTIONSTRING
     || "localhost:6379",
 
-  // Messaging: supports both RabbitMQ (local) and Azure Service Bus (cloud)
-  // Auto-detected by connection string format
   rabbitmq: process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672",
   serviceBus: process.env.AZURE_SERVICEBUS_CONNECTIONSTRING || null,
   exchange: process.env.RABBITMQ_EXCHANGE || "booktable.events",
@@ -51,25 +48,21 @@ const config = {
   ],
 };
 
-// Determine messaging backend
 const USE_SERVICE_BUS = !!config.serviceBus;
 
 // PostgreSQL SSL config for Azure
 function pgSslConfig() {
   const connStr = config.postgres;
-  // Azure PostgreSQL requires SSL
   if (IS_AZURE || connStr.includes("azure") || connStr.includes("postgres.database.azure.com")) {
     return { connectionString: connStr, max: 5, ssl: { rejectUnauthorized: false } };
   }
   return { connectionString: connStr, max: 5 };
 }
 
-// Redis connection options for Azure vs local
+// Redis connection options
 function redisOpts() {
   const url = config.redis;
-  // Azure Cache for Redis: "hostname:6380,password=xxx,ssl=True" or "rediss://..." format
   if (url.includes(",password=") || url.includes(",ssl=")) {
-    // Parse Azure format: hostname:port,password=xxx,ssl=True
     const parts = url.split(",");
     const hostPort = parts[0].split(":");
     const password = (parts.find(p => p.startsWith("password=")) || "").replace("password=", "");
@@ -79,7 +72,6 @@ function redisOpts() {
   if (url.startsWith("rediss://")) {
     return { ...parseRedisUrl(url), tls: {}, retryStrategy: t => Math.min(t * 500, 5000), maxRetriesPerRequest: 3, lazyConnect: true };
   }
-  // Local: simple host:port or redis:// URL
   if (url.startsWith("redis://")) {
     return { ...parseRedisUrl(url), retryStrategy: t => Math.min(t * 500, 5000), maxRetriesPerRequest: 3, lazyConnect: true };
   }
@@ -99,14 +91,43 @@ let wsClients = new Set();
 let connected = { messaging: false, redis: false, postgres: false };
 let rabbitConn, rabbitChannel, redis, pgPool, sbClient;
 
+// View state
+let viewDate = null; // null = auto-detect first available date
+
+// Helper: normalize PG date to YYYY-MM-DD string
+function isoDate(d) {
+  if (d instanceof Date) return d.toISOString().slice(0, 10);
+  const s = String(d);
+  if (s.length >= 10 && s[4] === '-') return s.slice(0, 10);
+  // fallback: try parsing
+  try { return new Date(s).toISOString().slice(0, 10); } catch { return s; }
+}
+
+// Admin settings defaults
+let adminSettings = {
+  require_cc_hold_peak: false,
+  require_cc_hold_holidays: false,
+  reservation_duration_minutes: 90,
+};
+
+// ─── Gateway URL (for API proxy) ───
+const GATEWAY_URL = process.env.GATEWAY_URL
+  || (IS_AZURE ? "https://anna-booktable-gateway.azurewebsites.net" : "http://localhost:5000");
+
 // ─── HTTP Server ───
 const htmlPath = path.join(__dirname, "dashboard.html");
 
 const httpServer = http.createServer((req, res) => {
-  // CORS for Azure cross-origin
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+
+  // Proxy /api/* requests to the gateway
+  if (req.url.startsWith("/api/")) {
+    proxyToGateway(req, res);
+    return;
+  }
 
   if (req.url === "/" || req.url === "/index.html") {
     fs.readFile(htmlPath, (err, data) => {
@@ -129,6 +150,30 @@ const httpServer = http.createServer((req, res) => {
   }
 });
 
+// ─── API Proxy ───
+function proxyToGateway(clientReq, clientRes) {
+  const target = new URL(GATEWAY_URL);
+  const opts = {
+    hostname: target.hostname,
+    port: target.port || (target.protocol === "https:" ? 443 : 80),
+    path: clientReq.url,
+    method: clientReq.method,
+    headers: { ...clientReq.headers, host: target.host },
+  };
+  // Use https if gateway is https
+  const lib = target.protocol === "https:" ? require("https") : http;
+  const proxyReq = lib.request(opts, (proxyRes) => {
+    clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(clientRes, { end: true });
+  });
+  proxyReq.on("error", (e) => {
+    log("Proxy", `Gateway error: ${e.message}`, true);
+    clientRes.writeHead(502, { "Content-Type": "application/json" });
+    clientRes.end(JSON.stringify({ success: false, message: "Gateway unavailable: " + e.message }));
+  });
+  clientReq.pipe(proxyReq, { end: true });
+}
+
 // ─── WebSocket Server (shares HTTP port via upgrade) ───
 const wss = new WebSocket.Server({ noServer: true });
 
@@ -143,10 +188,17 @@ wss.on("connection", (ws) => {
   wsClients.add(ws);
   ws.send(JSON.stringify({ type: "connection_status", data: connected }));
   ws.send(JSON.stringify({ type: "mode", data: LIVE ? "live" : "simulate" }));
-  ws.send(JSON.stringify({ type: "env", data: { azure: IS_AZURE, messaging: USE_SERVICE_BUS ? "service-bus" : "rabbitmq" } }));
+  ws.send(JSON.stringify({ type: "env", data: { azure: IS_AZURE, messaging: USE_SERVICE_BUS ? "service-bus" : "rabbitmq", gatewayUrl: IS_AZURE ? "https://anna-booktable-gateway.azurewebsites.net" : "http://localhost:5000" } }));
+  ws.send(JSON.stringify({ type: "admin_settings", data: adminSettings }));
   ws.on("close", () => { wsClients.delete(ws); });
   ws.on("message", (raw) => {
-    try { handleCmd(JSON.parse(raw)); } catch {}
+    try {
+      const msg = JSON.parse(raw);
+      // Forward agent_state and event messages from external agents to all dashboard clients
+      if (msg.type === "agent_state") { broadcast("agent_state", msg.data); return; }
+      if (msg.type === "event") { broadcast("event", msg.data); return; }
+      handleCmd(msg);
+    } catch {}
   });
 });
 
@@ -159,6 +211,39 @@ function handleCmd(msg) {
   if (msg.command === "refresh_slots") pollSlots();
   else if (msg.command === "refresh_metrics") pollMetrics();
   else if (msg.command === "get_holds") pollHolds();
+  else if (msg.command === "get_bookings") pollBookingsList();
+  else if (msg.command === "set_setting") handleSetSetting(msg);
+  else if (msg.command === "get_settings") broadcast("admin_settings", adminSettings);
+  else if (msg.command === "set_date") { viewDate = msg.date || null; pollSlots(); }
+  else if (msg.command === "expand_slots") handleExpandSlots(msg);
+}
+
+// ─── Admin Settings ───
+async function handleSetSetting(msg) {
+  const { key, value } = msg;
+  if (key && key in adminSettings) {
+    adminSettings[key] = value;
+    // Persist to Redis if connected
+    if (redis && connected.redis) {
+      try {
+        await redis.hset("booktable:settings", key, JSON.stringify(value));
+      } catch (e) { log("Settings", "Failed to write Redis: " + e.message, true); }
+    }
+    broadcast("admin_settings", adminSettings);
+    log("Settings", `${key} = ${value}`);
+  }
+}
+
+async function loadSettings() {
+  if (!redis || !connected.redis) return;
+  try {
+    const all = await redis.hgetall("booktable:settings");
+    for (const [k, v] of Object.entries(all)) {
+      try { adminSettings[k] = JSON.parse(v); } catch { adminSettings[k] = v; }
+    }
+    broadcast("admin_settings", adminSettings);
+    log("Settings", "Loaded from Redis");
+  } catch {}
 }
 
 // ─── RabbitMQ Connection (local / non-Azure) ───
@@ -199,42 +284,46 @@ async function connectServiceBus() {
   }
   try {
     sbClient = new sbModule.ServiceBusClient(config.serviceBus);
-    // Subscribe to the topic (MassTransit creates topics matching event types)
-    // Try each event type as a topic, with a monitor subscription
+    const adminClient = new sbModule.ServiceBusAdministrationClient(config.serviceBus);
     const subscriptionName = "monitor-" + (process.env.WEBSITE_INSTANCE_ID || "local").slice(0, 8);
 
-    for (const routingKey of config.routingKeys) {
-      try {
-        const adminClient = new sbModule.ServiceBusAdministrationClient(config.serviceBus);
-        // MassTransit topic naming: replace dots with hyphens or use as-is
-        const topicName = routingKey.replace(/\./g, "-");
-        try { await adminClient.createSubscription(topicName, subscriptionName); } catch {}
-
-        const receiver = sbClient.createReceiver(topicName, subscriptionName, { receiveMode: "receiveAndDelete" });
-        receiver.subscribe({
-          processMessage: async (msg) => { handleEvent(routingKey, msg.body); },
-          processError: async (args) => { log("ServiceBus", `Error on ${topicName}: ${args.error.message}`, true); },
-        });
-      } catch {
-        // Topic may not exist yet — that's fine, MassTransit creates on first publish
-      }
+    // Discover MassTransit topics dynamically
+    const topicIter = adminClient.listTopics();
+    const discoveredTopics = [];
+    for await (const topic of topicIter) {
+      discoveredTopics.push(topic.name);
     }
+    log("ServiceBus", `Discovered ${discoveredTopics.length} topics: ${discoveredTopics.join(", ")}`);
 
-    // Also try a single "booktable-events" topic if it exists
-    try {
-      const receiver = sbClient.createReceiver(config.serviceBusTopic, subscriptionName, { receiveMode: "receiveAndDelete" });
+    // Match topics by known event type keywords
+    const eventKeywords = ["slotheld", "slotreleased", "reservationcreated", "reservationcancelled", "paymentcharged"];
+    const rkMap = {
+      "slotheld": "hold.acquired", "slotreleased": "hold.expired",
+      "reservationcreated": "reservation.created", "reservationcancelled": "reservation.cancelled",
+      "paymentcharged": "payment.charged",
+    };
+
+    for (const topicName of discoveredTopics) {
+      const lower = topicName.toLowerCase().replace(/[^a-z]/g, "");
+      const matchedKeyword = eventKeywords.find(kw => lower.includes(kw));
+      if (!matchedKeyword && !topicName.includes("booktable")) continue;
+
+      try { await adminClient.createSubscription(topicName, subscriptionName); } catch {}
+
+      const receiver = sbClient.createReceiver(topicName, subscriptionName, { receiveMode: "receiveAndDelete" });
       receiver.subscribe({
         processMessage: async (msg) => {
-          const rk = msg.applicationProperties?.routingKey || msg.subject || "";
+          const rk = rkMap[matchedKeyword] || msg.applicationProperties?.routingKey || msg.subject || topicName;
           handleEvent(rk, msg.body);
         },
-        processError: async () => {},
+        processError: async (args) => { log("ServiceBus", `Error on ${topicName}: ${args.error.message}`, true); },
       });
-    } catch {}
+      log("ServiceBus", `Subscribed to topic: ${topicName} → ${rkMap[matchedKeyword] || "raw"}`);
+    }
 
     connected.messaging = true;
     broadcast("connection_status", connected);
-    log("ServiceBus", "Connected to Azure Service Bus");
+    log("ServiceBus", `Connected to Azure Service Bus (${discoveredTopics.length} topics)`);
   } catch (e) {
     log("ServiceBus", "Failed: " + e.message, true);
     connected.messaging = false; broadcast("connection_status", connected);
@@ -254,7 +343,10 @@ async function connectRedis() {
     redis.on("error", () => { connected.redis = false; broadcast("connection_status", connected); });
     redis.on("close", () => { connected.redis = false; broadcast("connection_status", connected); });
 
-    // Keyspace notifications (may not be available on Azure Basic tier)
+    // Load admin settings from Redis
+    await loadSettings();
+
+    // Keyspace notifications
     try {
       const sub = redis.duplicate();
       await sub.connect();
@@ -308,24 +400,50 @@ async function pollSlots() {
     const restaurants = await pgPool.query(`
       SELECT r.restaurant_id, r.name, r.cuisine, COUNT(DISTINCT t.table_id) AS table_count
       FROM restaurants r LEFT JOIN tables t ON t.restaurant_id = r.restaurant_id
-      GROUP BY r.restaurant_id, r.name, r.cuisine ORDER BY r.name LIMIT 20
+      WHERE r.is_active = true
+      GROUP BY r.restaurant_id, r.name, r.cuisine ORDER BY r.name
     `);
-    const dateResult = await pgPool.query(`SELECT DISTINCT date FROM time_slots WHERE date >= CURRENT_DATE ORDER BY date LIMIT 1`);
-    const slotDate = dateResult.rows.length > 0 ? dateResult.rows[0].date : null;
-    if (!slotDate) { broadcast("slot_state", { restaurants: restaurants.rows, slots: [], aggregates: [] }); return; }
+    // Get all available dates
+    const allDates = await pgPool.query(`SELECT DISTINCT date FROM time_slots WHERE date >= CURRENT_DATE ORDER BY date`);
+    const availableDates = allDates.rows.map(r => r.date);
+
+    // Use viewDate if set, otherwise auto-detect first available
+    let slotDate = null;
+    if (viewDate && availableDates.some(d => isoDate(d) === isoDate(viewDate))) {
+      slotDate = viewDate;
+    } else if (availableDates.length > 0) {
+      slotDate = availableDates[0];
+    }
+
+    if (!slotDate) { broadcast("slot_state", { restaurants: restaurants.rows, slots: [], aggregates: [], availableDates: [] }); return; }
     const slotState = await pgPool.query(`
       SELECT ts.slot_id, ts.restaurant_id, ts.table_id, t.table_number,
-             ts.start_time, ts.status, ts.held_by, ts.held_until,
+             ts.start_time,
+             CASE WHEN res.reservation_id IS NOT NULL THEN 'BOOKED' ELSE ts.status END AS status,
+             ts.held_by, ts.held_until,
              res.user_id AS booked_by, u.first_name AS booked_by_name
       FROM time_slots ts JOIN tables t ON t.table_id = ts.table_id
       LEFT JOIN reservations res ON res.slot_id = ts.slot_id AND res.status IN ('CONFIRMED','PENDING')
       LEFT JOIN users u ON u.user_id = res.user_id
       WHERE ts.date = $1 ORDER BY ts.restaurant_id, t.table_number, ts.start_time
     `, [slotDate]);
-    const aggregates = await pgPool.query(`
-      SELECT ts.restaurant_id, ts.status, COUNT(*) AS cnt FROM time_slots ts WHERE ts.date = $1 GROUP BY ts.restaurant_id, ts.status
-    `, [slotDate]);
-    broadcast("slot_state", { restaurants: restaurants.rows, slots: slotState.rows, aggregates: aggregates.rows, slotDate });
+
+    // Enrich with Redis holds (holds are Redis-only, key=hold:{slotId} value={userId}:{holdToken})
+    const redisHolds = await getRedisHolds();
+    const enrichedSlots = slotState.rows.map(s => {
+      if (s.status !== 'BOOKED' && redisHolds[s.slot_id]) {
+        return { ...s, status: 'HELD', held_by: redisHolds[s.slot_id].userId, held_until: null };
+      }
+      return s;
+    });
+
+    const aggregates = {};
+    enrichedSlots.forEach(s => {
+      const key = s.restaurant_id + ':' + s.status;
+      if (!aggregates[key]) aggregates[key] = { restaurant_id: s.restaurant_id, status: s.status, cnt: 0 };
+      aggregates[key].cnt++;
+    });
+    broadcast("slot_state", { restaurants: restaurants.rows, slots: enrichedSlots, aggregates: Object.values(aggregates), slotDate, availableDates });
   } catch (e) { log("Poll:Slots", e.message, true); }
 }
 
@@ -367,14 +485,135 @@ async function pollMetrics() {
     if (slotDate) {
       const u = await pgPool.query(`
         SELECT COUNT(*) AS total_slots, COUNT(*) FILTER (WHERE status = 'AVAILABLE') AS available,
-               COUNT(*) FILTER (WHERE status = 'HELD') AS held, COUNT(*) FILTER (WHERE status = 'BOOKED') AS booked,
+               COUNT(*) FILTER (WHERE status = 'BOOKED') AS booked,
                COUNT(*) FILTER (WHERE status = 'BLOCKED') AS blocked
         FROM time_slots WHERE date = $1
       `, [slotDate]);
       util = u.rows[0] || util;
+      // Add Redis holds count (Redis-only, not in DB)
+      const redisHolds = await getRedisHolds();
+      const heldCount = Object.keys(redisHolds).length;
+      util.held = heldCount;
+      util.available = parseInt(util.available) - heldCount; // some "available" are actually held
+      if (util.available < 0) util.available = 0;
     }
     broadcast("metrics", { bookings: bk.rows[0], utilization: util });
   } catch (e) { log("Poll:Metrics", e.message, true); }
+}
+
+async function pollBookingsList() {
+  if (!pgPool || !connected.postgres) return;
+  try {
+    const result = await pgPool.query(`
+      SELECT r.reservation_id, r.confirmation_code, r.status, r.party_size, r.booked_at,
+             rest.name AS restaurant_name, rest.cuisine,
+             u.first_name, u.last_name,
+             ts.start_time
+      FROM reservations r
+      JOIN restaurants rest ON rest.restaurant_id = r.restaurant_id
+      LEFT JOIN users u ON u.user_id = r.user_id
+      LEFT JOIN time_slots ts ON ts.slot_id = r.slot_id
+      WHERE r.created_at::date = CURRENT_DATE
+      ORDER BY r.created_at DESC LIMIT 50
+    `);
+    broadcast("bookings_list", result.rows);
+  } catch (e) { log("Poll:Bookings", e.message, true); }
+}
+
+// ─── Redis Hold Lookup ───
+async function getRedisHolds() {
+  const holds = {};
+  if (!redis || !connected.redis) return holds;
+  try {
+    let cursor = "0";
+    do {
+      const [next, keys] = await redis.scan(cursor, "MATCH", "hold:*", "COUNT", 200);
+      cursor = next;
+      for (const k of keys) {
+        const v = await redis.get(k);
+        if (!v) continue;
+        const parts = v.split(":");
+        const slotId = k.replace("hold:", "");
+        holds[slotId] = { userId: parts[0], holdToken: parts[1] || null };
+      }
+    } while (cursor !== "0");
+  } catch (e) { log("Redis:Holds", "Scan failed: " + e.message, true); }
+  return holds;
+}
+
+// ─── Expand Slots (multi-day view) ───
+async function handleExpandSlots(msg) {
+  if (!pgPool || !connected.postgres) return;
+  const status = msg.status; // "BOOKED" or "HELD"
+  if (!status) return;
+  try {
+    const restaurants = await pgPool.query(`
+      SELECT r.restaurant_id, r.name, r.cuisine, COUNT(DISTINCT t.table_id) AS table_count
+      FROM restaurants r LEFT JOIN tables t ON t.restaurant_id = r.restaurant_id
+      WHERE r.is_active = true
+      GROUP BY r.restaurant_id, r.name, r.cuisine ORDER BY r.name
+    `);
+
+    if (status === 'HELD') {
+      // Holds are Redis-only — scan Redis, then fetch slot details from DB
+      const redisHolds = await getRedisHolds();
+      const heldSlotIds = Object.keys(redisHolds);
+      if (heldSlotIds.length === 0) {
+        broadcast("expanded_slot_state", { restaurants: restaurants.rows, slotsByDate: {}, dates: [], status });
+        return;
+      }
+      // Fetch slot details for all held slot IDs
+      const slotsResult = await pgPool.query(`
+        SELECT ts.slot_id, ts.restaurant_id, ts.table_id, t.table_number, ts.date,
+               ts.start_time, ts.status
+        FROM time_slots ts JOIN tables t ON t.table_id = ts.table_id
+        WHERE ts.slot_id = ANY($1) AND ts.date >= CURRENT_DATE
+        ORDER BY ts.date, ts.restaurant_id, t.table_number, ts.start_time
+      `, [heldSlotIds]);
+
+      // Enrich with Redis hold info
+      const slotsByDate = {};
+      const dateSet = new Set();
+      for (const slot of slotsResult.rows) {
+        const hold = redisHolds[slot.slot_id];
+        const enriched = { ...slot, status: 'HELD', held_by: hold?.userId || null, held_until: null };
+        const d = isoDate(slot.date);
+        dateSet.add(d);
+        if (!slotsByDate[d]) slotsByDate[d] = [];
+        slotsByDate[d].push(enriched);
+      }
+      const dates = Array.from(dateSet).sort();
+      broadcast("expanded_slot_state", { restaurants: restaurants.rows, slotsByDate, dates, status });
+
+    } else {
+      // BOOKED — query reservations from DB (unchanged logic)
+      const statusCondition = `EXISTS(SELECT 1 FROM reservations r WHERE r.slot_id = ts.slot_id AND r.status IN ('CONFIRMED','PENDING'))`;
+      const datesResult = await pgPool.query(
+        `SELECT DISTINCT ts.date FROM time_slots ts WHERE (${statusCondition}) AND ts.date >= CURRENT_DATE ORDER BY ts.date`
+      );
+      const dates = datesResult.rows.map(r => r.date);
+      if (dates.length === 0) { broadcast("expanded_slot_state", { restaurants: restaurants.rows, slotsByDate: {}, dates: [], status }); return; }
+
+      const slotsResult = await pgPool.query(`
+        SELECT ts.slot_id, ts.restaurant_id, ts.table_id, t.table_number, ts.date,
+               ts.start_time, 'BOOKED' AS status,
+               res.user_id AS booked_by, u.first_name AS booked_by_name
+        FROM time_slots ts JOIN tables t ON t.table_id = ts.table_id
+        JOIN reservations res ON res.slot_id = ts.slot_id AND res.status IN ('CONFIRMED','PENDING')
+        LEFT JOIN users u ON u.user_id = res.user_id
+        WHERE ts.date >= CURRENT_DATE
+        ORDER BY ts.date, ts.restaurant_id, t.table_number, ts.start_time
+      `);
+
+      const slotsByDate = {};
+      for (const slot of slotsResult.rows) {
+        const d = isoDate(slot.date);
+        if (!slotsByDate[d]) slotsByDate[d] = [];
+        slotsByDate[d].push(slot);
+      }
+      broadcast("expanded_slot_state", { restaurants: restaurants.rows, slotsByDate, dates, status });
+    }
+  } catch (e) { log("Expand:Slots", e.message, true); }
 }
 
 // ─── Logging ───
@@ -398,23 +637,7 @@ async function main() {
   console.log("  ╚═══════════════════════════════════════════════╝");
   console.log("");
 
-  if (LIVE) {
-    log("Boot", `Connecting to infrastructure (${env})...`);
-    log("Boot", `PostgreSQL: ${config.postgres.replace(/:[^:@]+@/, ":***@")}`);
-    log("Boot", `Redis:      ${config.redis.replace(/password=[^,]+/, "password=***")}`);
-    log("Boot", `Messaging:  ${USE_SERVICE_BUS ? "Azure Service Bus" : config.rabbitmq}`);
-
-    const connectors = [connectRedis(), connectPostgres()];
-    if (USE_SERVICE_BUS) connectors.push(connectServiceBus());
-    else connectors.push(connectRabbitMQ());
-    await Promise.allSettled(connectors);
-
-    setInterval(pollSlots, config.pollSlots);
-    setInterval(pollMetrics, config.pollMetrics);
-    setInterval(pollHolds, config.pollSlots);
-    setTimeout(() => { pollSlots(); pollMetrics(); pollHolds(); }, 1000);
-  }
-
+  // Start HTTP server FIRST so Azure sees a healthy process immediately
   httpServer.listen(PORT, () => {
     const url = `http://localhost:${PORT}`;
     log("HTTP", `Dashboard ready at ${url}`);
@@ -423,6 +646,25 @@ async function main() {
       exec(cmd, () => {});
     }
   });
+
+  // Connect to infrastructure in the background (non-blocking)
+  if (LIVE) {
+    log("Boot", `Connecting to infrastructure (${env})...`);
+    log("Boot", `PostgreSQL: ${config.postgres.replace(/:[^:@]+@/, ":***@")}`);
+    log("Boot", `Redis:      ${config.redis.replace(/password=[^,]+/, "password=***")}`);
+    log("Boot", `Messaging:  ${USE_SERVICE_BUS ? "Azure Service Bus" : config.rabbitmq}`);
+
+    // Fire and forget — each connector retries on its own
+    connectRedis().catch(e => log("Boot", "Redis init error: " + e.message, true));
+    connectPostgres().catch(e => log("Boot", "Postgres init error: " + e.message, true));
+    if (USE_SERVICE_BUS) connectServiceBus().catch(e => log("Boot", "ServiceBus init error: " + e.message, true));
+    else connectRabbitMQ().catch(e => log("Boot", "RabbitMQ init error: " + e.message, true));
+
+    setInterval(pollSlots, config.pollSlots);
+    setInterval(pollMetrics, config.pollMetrics);
+    setInterval(pollHolds, config.pollSlots);
+    setTimeout(() => { pollSlots(); pollMetrics(); pollHolds(); }, 3000);
+  }
 }
 
 main().catch(console.error);

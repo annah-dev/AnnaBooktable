@@ -178,4 +178,36 @@ public class RedisService
             _logger.LogError(ex, "Redis error setting idempotency key {Key}", key);
         }
     }
+
+    // ============================================================
+    // ADMIN SETTINGS (booktable:settings hash)
+    // ============================================================
+
+    public async Task<Dictionary<string, string>> GetSettings()
+    {
+        try
+        {
+            var entries = await Db.HashGetAllAsync("booktable:settings");
+            return entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Redis error reading settings");
+            return new Dictionary<string, string>();
+        }
+    }
+
+    public async Task<string?> GetSetting(string key)
+    {
+        try
+        {
+            var value = await Db.HashGetAsync("booktable:settings", key);
+            return value.IsNullOrEmpty ? null : value.ToString();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Redis error reading setting {Key}", key);
+            return null;
+        }
+    }
 }

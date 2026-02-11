@@ -8,7 +8,18 @@ INSERT INTO users (user_id, email, password_hash, first_name, last_name, phone, 
     ('a0000000-0000-0000-0000-000000000002', 'bob@test.com',      '$2a$10$testhashedpassword2', 'Bob',     'Tester',    '+1-425-555-0002', '{"cuisine_prefs": ["Mexican", "Thai"]}'),
     ('a0000000-0000-0000-0000-000000000003', 'carol@test.com',    '$2a$10$testhashedpassword3', 'Carol',   'Manager',   '+1-425-555-0003', '{"cuisine_prefs": ["French"]}'),
     ('a0000000-0000-0000-0000-000000000004', 'dave@test.com',     '$2a$10$testhashedpassword4', 'Dave',    'Foodie',    '+1-425-555-0004', '{}'),
-    ('a0000000-0000-0000-0000-000000000005', 'eve@test.com',      '$2a$10$testhashedpassword5', 'Eve',     'Critic',    '+1-425-555-0005', '{"cuisine_prefs": ["Japanese", "French", "Italian"]}');
+    ('a0000000-0000-0000-0000-000000000005', 'eve@test.com',      '$2a$10$testhashedpassword5', 'Eve',     'Critic',    '+1-425-555-0005', '{"cuisine_prefs": ["Japanese", "French", "Italian"]}'),
+    ('a0000000-0000-0000-0000-000000000006', 'frank@test.com',   '$2a$10$testhashedpassword6', 'Frank',   'Agent',     '+1-425-555-0006', '{}'),
+    ('a0000000-0000-0000-0000-000000000007', 'grace@test.com',   '$2a$10$testhashedpassword7', 'Grace',   'Agent',     '+1-425-555-0007', '{}'),
+    ('a0000000-0000-0000-0000-000000000008', 'hank@test.com',    '$2a$10$testhashedpassword8', 'Hank',    'Agent',     '+1-425-555-0008', '{}'),
+    ('a0000000-0000-0000-0000-000000000009', 'iris@test.com',    '$2a$10$testhashedpassword9', 'Iris',    'Agent',     '+1-425-555-0009', '{}'),
+    ('a0000000-0000-0000-0000-000000000010', 'jack@test.com',    '$2a$10$testhashedpassword10','Jack',    'Agent',     '+1-425-555-0010', '{}'),
+    ('a0000000-0000-0000-0000-000000000011', 'kate@test.com',    '$2a$10$testhashedpassword11','Kate',    'Agent',     '+1-425-555-0011', '{}'),
+    ('a0000000-0000-0000-0000-000000000012', 'leo@test.com',     '$2a$10$testhashedpassword12','Leo',     'Agent',     '+1-425-555-0012', '{}'),
+    ('a0000000-0000-0000-0000-000000000013', 'mia@test.com',     '$2a$10$testhashedpassword13','Mia',     'Agent',     '+1-425-555-0013', '{}'),
+    ('a0000000-0000-0000-0000-000000000014', 'nick@test.com',    '$2a$10$testhashedpassword14','Nick',    'Agent',     '+1-425-555-0014', '{}'),
+    ('a0000000-0000-0000-0000-000000000015', 'olivia@test.com',  '$2a$10$testhashedpassword15','Olivia',  'Agent',     '+1-425-555-0015', '{}'),
+    ('a0000000-0000-0000-0000-000000000016', 'pete@test.com',    '$2a$10$testhashedpassword16','Pete',    'Agent',     '+1-425-555-0016', '{}');
 
 -- ===== RESTAURANTS (~60 real Bellevue / Redmond area restaurants) =====
 INSERT INTO restaurants (restaurant_id, name, cuisine, price_level, address, city, state, zip_code, latitude, longitude, avg_rating, description, operating_hours, amenities) VALUES

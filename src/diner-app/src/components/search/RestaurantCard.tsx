@@ -22,8 +22,9 @@ export default function RestaurantCard({ restaurant, index, onCardClick, onTimeC
   const emoji = CUISINE_EMOJI[restaurant.cuisine ?? ''] ?? '🍽️';
 
   // Deduplicate slots by start time (multiple tables share the same time)
+  // Use epoch ms for comparison to handle format variations (e.g., trailing Z vs +00:00)
   const uniqueSlots = restaurant.availableSlots
-    .filter((slot, i, arr) => arr.findIndex(s => s.startTime === slot.startTime) === i);
+    .filter((slot, i, arr) => arr.findIndex(s => new Date(s.startTime).getTime() === new Date(slot.startTime).getTime()) === i);
 
   return (
     <div
