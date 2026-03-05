@@ -9,6 +9,21 @@ How to bring the full system back online after shutdown.
 - .NET SDK installed (8.x or 10.x — project targets `net8.0`)
 - Access to resource group `anna-booktable-rg`
 
+## Step 0: Scale Up Infrastructure
+
+The App Service Plan and PostgreSQL are scaled down / stopped during shutdown
+to minimize costs. Bring them back first:
+
+```bash
+# Scale App Service Plan back to B1 (or B2 if needed)
+az appservice plan update -g anna-booktable-rg -n anna-booktable-plan --sku B1
+
+# Start PostgreSQL (auto-restarts after 7 days anyway)
+az postgres flexible-server start -g anna-booktable-rg -n anna-booktable-pg
+```
+
+Wait ~1 minute for PostgreSQL to be ready before starting the services.
+
 ## Quick Start (everything at once)
 
 ```bash
