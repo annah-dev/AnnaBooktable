@@ -46,6 +46,7 @@ const SIM_R=[
 ];
 const CUISINE_EMOJIS={"Japanese":"\u{1F363}","Italian":"\u{1F35D}","French":"\u{1F950}","Steakhouse":"\u{1F969}","Mexican":"\u{1F32E}","Chinese":"\u{1F95F}","Thai":"\u{1F35C}","Indian":"\u{1F35B}","American":"\u{1F354}","Korean":"\u{1F958}","Mediterranean":"\u{1FAD2}","Seafood":"\u{1F99E}","Vietnamese":"\u{1F372}","BBQ":"\u{1F525}","Pizza":"\u{1F355}","Taiwanese":"\u{1F9CB}"};
 function cuisineEmoji(c){return CUISINE_EMOJIS[c]||"\u{1F37D}\uFE0F"}
+function tLabel(ti){const p=(ti||"").split("-");return p[p.length-1].replace(/^T/,"")}
 function formatTime(ts){if(!ts)return"";const s=""+ts;if(s.includes("T")){try{const d=new Date(s);return d.getHours()+":"+("0"+d.getMinutes()).slice(-2)}catch{}}if(s.includes(":"))return s.replace(/:\d{2}$/,"");return s}
 
 function makeSlots(rs){
@@ -231,7 +232,7 @@ function App(){
               .then(data=>{
                 if(data.success){
                   inc("holds");inc("redis");
-                  addLog("hold","\u{1F6E1}\uFE0F L1 "+agentName+" \u2192 "+chosen.r.name+" T"+chosen.ti.split("-T")[1]+"@"+chosen.ts+" HOLD OK",agentName,"L1");
+                  addLog("hold","\u{1F6E1}\uFE0F L1 "+agentName+" \u2192 "+chosen.r.name+" T"+tLabel(chosen.ti)+"@"+chosen.ts+" HOLD OK",agentName,"L1");
                   setAgents(p=>p.map(x=>x.id===agentId?{...x,st:"PAY",holdToken:data.data?.holdToken||null,pending:false,t0:Date.now()}:x));
                 }else{
                   inc("holdFail");inc("redis");
@@ -282,7 +283,7 @@ function App(){
             if(cur&&cur.status==="HELD"&&cur.heldBy===a.name){
               setSlots(p=>({...p,[a.hk]:{...p[a.hk],status:"BOOKED",bookedBy:a.name,heldBy:null}}));
               inc("books");addLog("book","\u{1F6E1}\uFE0F L2 UNIQUE(restaurant,table,time) \u2713 COMMIT",a.name,"L2");
-              addLog("success","\u2705 "+a.name+" \u2192 "+a.tgt.r.name+" T"+a.tgt.ti.split("-T")[1]+"@"+a.tgt.t+" CONFIRMED",a.name);
+              addLog("success","\u2705 "+a.name+" \u2192 "+a.tgt.r.name+" T"+tLabel(a.tgt.ti)+"@"+a.tgt.t+" CONFIRMED",a.name);
               return{...a,st:"DONE",t0:now};
             }
             inc("bookFail");addLog("conflict","\u{1F6E1}\uFE0F L2 UNIQUE CONSTRAINT VIOLATION \u2192 409 Conflict",a.name,"L2");return{...a,st:"FAIL",t0:now};
@@ -636,7 +637,7 @@ function App(){
               background:{SEARCH:"#dbeafe",HOLDING:P.amberBg,PAY:P.amberBg,BOOKING:"#dbeafe",DIRECT:P.redBg,DONE:P.greenBg,FAIL:P.redBg}[a.st]||P.page,
               color:{SEARCH:P.blue,HOLDING:P.amber,PAY:P.amber,BOOKING:P.blue,DIRECT:P.red,DONE:P.green,FAIL:P.red}[a.st]||P.muted}},
               {SEARCH:"SEARCH",HOLDING:"HOLDING...",PAY:"PAYING",BOOKING:"BOOKING...",DIRECT:"DIRECT",DONE:"DONE",FAIL:"REJECT"}[a.st]),
-            a.tgt&&React.createElement("span",{style:{fontSize:8,color:P.muted}},a.tgt.r.emoji+"T"+a.tgt.ti.split("-T")[1]+"@"+a.tgt.t)))
+            a.tgt&&React.createElement("span",{style:{fontSize:8,color:P.muted}},a.tgt.r.emoji+"T"+tLabel(a.tgt.ti)+"@"+a.tgt.t)))
         ),
         React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column"}},
           React.createElement("div",{style:{padding:"6px 10px",borderBottom:"1px solid "+P.border,fontSize:10,color:P.muted,letterSpacing:2,fontWeight:700}},"\u{1F4CB} EVENT LOG"),
